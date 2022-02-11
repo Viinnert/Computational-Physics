@@ -10,5 +10,6 @@ Project overview:
 
 ## Authors
 Vincent Krabbenborg (Studentnummer = XXXXXXX)
+
 Thomas Rothe (Studentnummer = 1930443)
 

@@ -26,8 +26,11 @@ from tkinter.tix import MAX
 import numpy as np
 import h5py as hdf
 import scipy as sp
+import scipy.constants as sp_const
+import scipy.spatial.distance as sp_dist
+import scipy.optimize as sp_optim
 
-WORKDIR_PATH = os.getcwd()
+WORKDIR_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = WORKDIR_PATH + "/data/" 
 DATA_FILENAME = "trajectories.hdf5"
 
@@ -83,11 +86,11 @@ def initialize_atoms_random(canvas, n_atoms):
     - pos::ndarray = Array of initial molecule positions
     - veloc::ndarray = Array of initial molecule velocities
     """
-    pos = np.random.randn(canvas.n_dim, n_atoms) * canvas.size
-    veloc = np.random.randn(canvas.n_dim, n_atoms) * (canvas.size/2)
+    pos = np.random.randn(n_atoms, canvas.n_dim) * canvas.size
+    veloc = np.random.randn(n_atoms, canvas.n_dim) * (canvas.size/2)
     return pos, veloc
 
-def lennard_jones(distance, sigma, epsilon):
+def lennard_jones(distance, pot_args):
     """
     Calculate and return the value of the lennard jones potential for given 
     inter-particle distance, sigma and epsilon
@@ -99,7 +102,7 @@ def lennard_jones(distance, sigma, epsilon):
     Return
     - pot_val::float = Value of the lennard jones potential for given sigma and epsilon
     """
-    return 4*epsilon*((sigma/distance)**12 - (sigma/distance)**6)
+    return 4*pot_args['epsilon']*((pot_args['sigma']/distance)**12 - (pot_args['sigma']/distance)**6)
 
 
 def forces(c_pos, pot_args):
@@ -107,8 +110,8 @@ def forces(c_pos, pot_args):
     Calculate and return the force on every particle, due to all other particles
 
     Args
-    - c_pos = Current position of all particles
-    - pot_args = Arguments/constants required to evaluate the potential
+    - c_pos::ndarray = Current position of all particles
+    - pot_args::dict = Arguments/constants required to evaluate the potential
 
     Return
     - force::ndarray = Force on each particle by any other particle
@@ -117,20 +120,22 @@ def forces(c_pos, pot_args):
     lj_vect_func = np.vectorize(lennard_jones, excluded=['sigma', 'epsilon'])
 
     #Calculate all pairwise distances between particles
-    distance_list = list(sp.spatial.distance.pdist(c_pos, 'euclidean')) #small (efficient) list of all pairwise distances
+    distance_list = list(sp_dist.pdist(c_pos, 'euclidean')) #small (efficient) list of all pairwise distances
     
     #Get distances into symmetric array form with element i,j -> distance r_ij (less efficient)
     distances = np.zeros((c_pos.shape[0], c_pos.shape[0]))
-    distances[np.triu_indices(c_pos.shape[0])] = distance_list
-    distances[np.tril_indices(c_pos.shape[0])] = distances.T[np.tril_indices(c_pos.shape[0])]
-    
+    distances[np.triu_indices(c_pos.shape[0], k=1)] = distance_list
+    distances[np.tril_indices(c_pos.shape[0], k=-1)] = distances.T[np.tril_indices(c_pos.shape[0], k=-1)]
+    #Set diagonal of distances to infinity to preven division by zero
+    distances[np.diag_indices(c_pos.shape[0])] = np.inf
+
     #For distances matrix calculate the gradient matrix: element i,j -> dU(r_ij)/dr
-    lj_gradient_list = list(sp.optimize.approx_fprime(distances, lj_vect_func, *pot_args))
+    lj_gradient_list = list(sp_optim.approx_fprime(distances, lj_vect_func, np.sqrt(np.finfo(float).eps), pot_args))
     lj_gradient_dist = np.zeros((c_pos.shape[0], c_pos.shape[0]))
-    lj_gradient_dist[np.triu_indices(c_pos.shape[0])] = lj_gradient_list
-    lj_gradient_dist[np.tril_indices(c_pos.shape[0])] = lj_gradient_dist.T[np.tril_indices(c_pos.shape[0])]
+    lj_gradient_dist[np.triu_indices(c_pos.shape[0], k=1)] = lj_gradient_list
+    lj_gradient_dist[np.tril_indices(c_pos.shape[0], k=-1)] = lj_gradient_dist.T[np.tril_indices(c_pos.shape[0], k=-1)]
     
-    #Calculate grad_r U(r_ij) = (dU/dr) / r_ij * \vec{pos_i} = matrix  
+    #Calculate grad_r U(r_ij) = (dU/dr) / r_ij * \vec{ pos_i} = matrix  
     #Need to add third dimension in order to have "vector-entries" x,y,z at each original 2D element i,j
     lj_gradient_pos = np.tile(lj_gradient_dist/distances, (1, 1, c_pos.shape[1])) * c_pos
     
@@ -152,15 +157,13 @@ class Simulation:
     - canvas_size::ndarray = Array of canvas side length in each dimension
     - time::ndarray = Ordered array of all time values to simulate over
     - delta_t::float = Timestep per iteration in simulation; Should equal used timestep in time array
-    - pot_args::list = List with arguments (e.g. constants) required for calculating the potential 
+    - pot_args::dict = Dictionary with arguments (e.g. constants) required for calculating the potential 
     """
-    def __init__(self, n_atoms, atom_mass, n_dim, canvas_size, time, delta_t, pot_args):
+    def __init__(self, n_atoms, atom_mass, n_dim, canvas_size, pot_args):
         self.n_atoms = n_atoms
         self.atom_mass = atom_mass
         self.n_dim = n_dim
         self.canvas_size = canvas_size
-        self.time = time
-        self.delta_t = delta_t
         self.pot_args = pot_args
 
         #Check for correct (dimensional) format of size
@@ -212,9 +215,9 @@ if __name__ == "__main__":
         print("Usage:\n", file=sys.stderr)
         print("Check out usage in README, you gave the wrong number of arguments", file=sys.stderr)
 
-    required_args = 0
-    if len(sys.argv) != required_args:
-        print_usage()
+    #required_args = 0
+    #if len(sys.argv) != required_args:
+    #    print_usage()
 
     #Hardcoded inputs (Maybe replace with argv arguments)
     N_atoms = 3 #Number of particles
@@ -223,12 +226,12 @@ if __name__ == "__main__":
     MAX_LENGTH = 5 #Canvas side length (m)
     CANVAS_SIZE = np.array([MAX_LENGTH, MAX_LENGTH]) #Canvas size (must be ndarray!)
     
-    POT_ARGS = [3.405e-10, sp.constants.k*119.8] #sigma, epsilon for Argon in SI units (see slides Lec. 1)
+    POT_ARGS = {'sigma': 3.405e-10, 'epsilon': sp_const.k*119.8} #sigma, epsilon for Argon in SI units (see slides Lec. 1)
 
     #Main simulation procedure
     sim = Simulation(n_atoms=N_atoms, atom_mass=ATOM_MASS, n_dim=N_DIM, canvas_size=CANVAS_SIZE, pot_args=POT_ARGS)
     
     END_OF_TIME = 10.0 #Maximum time (s)
     DELTA_T = 0.1 #Timestep (s)
-    TIME = np.arange(0, END_OF_TIME, DELTA_T) #Time array (s)
-    sim.__simulate__(time=TIME, delta_t = DELTA_T)
+    N_ITERATIONS = int(END_OF_TIME / DELTA_T)
+    sim.__simulate__(n_iterations=N_ITERATIONS, delta_t = DELTA_T)

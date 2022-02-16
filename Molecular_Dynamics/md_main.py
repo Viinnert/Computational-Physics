@@ -223,15 +223,14 @@ class Simulation:
             for i in range(1, n_iterations+1):
 
                 c_force_array = forces(self.canvas, self.pos, self.pot_args)
-
+                print(c_force_array)
                 n_pos, n_veloc = evolute(self.canvas, self.pos, self.veloc, c_force_array, self.atom_mass, delta_t)
                 
                 self.pos, self.veloc = n_pos, n_veloc
 
-                print(self.pos)
-                
                 #Store each iteration in a separate group of datasets
                 datagroup = file.create_group(f"iter_{i}")
+                datagroup.attrs['canvas_size'] = self.canvas.size 
                 datagroup.create_dataset(f"iter_{i}_pos", data=self.pos)
                 datagroup.create_dataset(f"iter_{i}_veloc", data=self.veloc)
                 
@@ -250,7 +249,7 @@ if __name__ == "__main__":
     #    print_usage()
 
     #Hardcoded inputs (Maybe replace with argv arguments)
-    N_ATOMS = 5 #Number of particles
+    N_ATOMS = 20 #Number of particles
     ATOM_MASS = 6.6335e-26 #Mass of atoms (kg); Argon = 39.948 u
     N_DIM = 2 #Number of dimensions
     MAX_LENGTH = 5 #Canvas side length (m)
@@ -262,6 +261,6 @@ if __name__ == "__main__":
     sim = Simulation(n_atoms=N_ATOMS, atom_mass=ATOM_MASS, n_dim=N_DIM, canvas_size=CANVAS_SIZE, pot_args=POT_ARGS)
     
     END_OF_TIME = 10.0 #Maximum time (s)
-    DELTA_T = 0.1 #Timestep (s)
+    DELTA_T = 0.01 #Timestep (s)
     N_ITERATIONS = int(END_OF_TIME / DELTA_T)
     sim.__simulate__(n_iterations=N_ITERATIONS, delta_t = DELTA_T)

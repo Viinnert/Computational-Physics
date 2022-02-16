@@ -23,9 +23,9 @@ import numpy as np
 import h5py as hdf
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib import cm
 
-
-WORKDIR_PATH = os.getcwd()
+WORKDIR_PATH = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = WORKDIR_PATH + "/data/" 
 DATA_FILENAME = "trajectories.hdf5"
 
@@ -52,7 +52,7 @@ mpl.rcParams.update(params)
 mpl.rc("font", **{"family": "sans-serif", "sans-serif": ["Times"]})
 
 
-def plot_trajectories(data_file):
+def plot_trajectories2D(data_file):
     """
     Plots the trajectories of particles stored in a given data file.
     
@@ -78,12 +78,14 @@ def plot_trajectories(data_file):
         current_pos = data_file[f"iter_{i}"][f"iter_{i}_pos"]
         current_veloc = data_file[f"iter_{i}"][f"iter_{i}_veloc"]
         
-        plt.scatter(current_pos[:,0], current_pos[:,1])
+        cmap = cm.rainbow(np.linspace(0, 1, current_pos[:,1].shape[0])) 
+        plt.scatter(current_pos[:,0], current_pos[:,1], c=cmap)
         
-        plt.ylim(-50,50)
-        plt.xlim(-50,50)
+        canvas_size = data_file[f"iter_{i}"].attrs["canvas_size"]
+        plt.ylim(0, canvas_size[0])
+        plt.xlim(0, canvas_size[1])
 
-        plt.pause(0.01)
+        plt.pause(0.05)
 
     plt.show()
     
@@ -101,7 +103,7 @@ if __name__ == "__main__":
     
     with hdf.File(DATA_PATH + DATA_FILENAME,'r') as data_file:
         
-        plot_trajectories(data_file)
+        plot_trajectories2D(data_file)
 
         #Call other plotting functions from inside here
 

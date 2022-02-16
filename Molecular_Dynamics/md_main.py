@@ -20,6 +20,7 @@ Functions:
 """
 
 from ctypes.wintypes import POINT
+import math
 import os
 import sys
 from time import sleep
@@ -75,6 +76,11 @@ def evolute(canvas, c_pos, c_veloc, force_array, atom_mass, delta_t):
     n_pos = c_pos + (c_veloc * delta_t) 
     n_veloc = c_veloc + (1/atom_mass * force_array * delta_t)
     
+    #Apply boundary conditions to particles out of the simulated box
+    mask = np.logical_or(n_pos > math.gcd(*canvas.size),  n_pos < 0)
+    n_pos[mask] = np.mod(n_pos[mask], math.gcd(*canvas.size))
+    n_veloc[mask] = n_veloc[mask]  #No loss of energy with periodic BCs + same direction
+    
     return n_pos, n_veloc
 
 
@@ -107,10 +113,8 @@ def lennard_jones(distance, pot_args):
     Return
     - pot_val::float = Value of the lennard jones potential for given sigma and epsilon
     """
-    returnval = 4*pot_args['epsilon']*((pot_args['sigma']/distance)**12 - (pot_args['sigma']/distance)**6)
-    print('d',distance, type(distance)) 
-    print('rv', returnval, type(returnval))
-    return float(returnval)
+    return 4*pot_args['epsilon']*((pot_args['sigma']/distance)**12 - (pot_args['sigma']/distance)**6)
+
 
 def forces(c_pos, pot_args):
     """
@@ -211,9 +215,6 @@ class Simulation:
                 c_force_array = forces(self.pos, self.pot_args)
 
                 n_pos, n_veloc = evolute(self.canvas, self.pos, self.veloc, c_force_array, self.atom_mass, delta_t)
-                
-                #Apply boundary conditions:
-                #n_pos = n_pos
                 
                 self.pos, self.veloc = n_pos, n_veloc
 

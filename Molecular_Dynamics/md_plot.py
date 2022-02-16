@@ -85,7 +85,7 @@ def plot_trajectories2D(data_file):
         plt.ylim(0, canvas_size[0])
         plt.xlim(0, canvas_size[1])
 
-        plt.pause(0.05)
+        plt.pause(0.5)
 
     plt.show()
     

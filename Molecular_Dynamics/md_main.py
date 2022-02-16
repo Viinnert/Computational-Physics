@@ -98,7 +98,7 @@ def initialize_atoms_random(canvas, n_atoms):
     - veloc::ndarray = Array of initial molecule velocities
     """
     pos = np.random.randn(n_atoms, canvas.n_dim) * canvas.size
-    veloc = np.random.randn(n_atoms, canvas.n_dim) * (canvas.size/2)
+    veloc = np.random.randn(n_atoms, canvas.n_dim) * (canvas.size/4)
     return pos, veloc
 
 def lennard_jones(distance, pot_args):
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     N_ATOMS = 20 #Number of particles
     ATOM_MASS = 6.6335e-26 #Mass of atoms (kg); Argon = 39.948 u
     N_DIM = 2 #Number of dimensions
-    MAX_LENGTH = 5 #Canvas side length (m)
+    MAX_LENGTH = 0.1/(1.664e3/ATOM_MASS) * 10e19 #Canvas side length (m): orient at normal density at T_room
     CANVAS_SIZE = np.array([MAX_LENGTH, MAX_LENGTH]) #Canvas size (must be ndarray!)
     
     POT_ARGS = {'sigma': 3.405e-10, 'epsilon': sp_const.k*119.8} #sigma, epsilon for Argon in SI units (see slides Lec. 1)
@@ -260,7 +260,7 @@ if __name__ == "__main__":
     #Main simulation procedure
     sim = Simulation(n_atoms=N_ATOMS, atom_mass=ATOM_MASS, n_dim=N_DIM, canvas_size=CANVAS_SIZE, pot_args=POT_ARGS)
     
-    END_OF_TIME = 10.0 #Maximum time (s)
-    DELTA_T = 0.01 #Timestep (s)
+    END_OF_TIME = 5.0 #Maximum time (s)
+    DELTA_T = 0.005 #Timestep (s)
     N_ITERATIONS = int(END_OF_TIME / DELTA_T)
     sim.__simulate__(n_iterations=N_ITERATIONS, delta_t = DELTA_T)

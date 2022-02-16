@@ -218,9 +218,9 @@ class Simulation:
                 self.pos, self.veloc = n_pos, n_veloc
 
                 #Store each iteration in a separate group of datasets
-                datagroup = file.create_group("iter_{index}".format(index=i))
-                datagroup.create_dataset("iter_{index}_pos".format(index=i), data=self.pos)
-                datagroup.create_dataset("iter_{index}_veloc".format(index=i), data=self.veloc)
+                datagroup = file.create_group(f"iter_{i}")
+                datagroup.create_dataset(f"iter_{i}_pos", data=self.pos)
+                datagroup.create_dataset(f"iter_{i}_veloc", data=self.veloc)
                 
 
 
@@ -237,7 +237,7 @@ if __name__ == "__main__":
     #    print_usage()
 
     #Hardcoded inputs (Maybe replace with argv arguments)
-    N_ATOMS = 3 #Number of particles
+    N_ATOMS = 5 #Number of particles
     ATOM_MASS = 6.6335e-26 #Mass of atoms (kg); Argon = 39.948 u
     N_DIM = 2 #Number of dimensions
     MAX_LENGTH = 5 #Canvas side length (m)

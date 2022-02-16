@@ -7,9 +7,9 @@ Including simulation of Argon molecules in Lennard-Jones potential using periodi
 .....
 
 ## Authors
-Vincent Krabbenborg (Studentnummer = XXXXXXX)
+Vincent Krabbenborg (Studentnummer = s2029189)
 
-Thomas Rothe (Studentnummer = 1930443)
+Thomas Rothe (Studentnummer = s1930443)
 
 ## Usage
 

@@ -22,6 +22,7 @@ Functions:
 from ctypes.wintypes import POINT
 import os
 import sys
+from time import sleep
 from tkinter.tix import MAX
 import numpy as np
 import h5py as hdf
@@ -62,15 +63,18 @@ def evolute(canvas, c_pos, c_veloc, force_array, atom_mass, delta_t):
     - canvas::Canvas = Space in which evolution should take place
     - c_pos::ndarray = Array of positions at current iteration
     - c_veloc::ndarray = Array of velocities at current iteration
+    - force_array::ndarray = Summed force on each particle (n_atoms x n_dim)
+    - atom_mass::float = Mass of each particle/atom (all assumed equal)
+    - delta_t::float = Timestep per iteration in simulation
 
     Return
     - n_pos::ndarray = Array of updated positions
     - n_veloc::ndarray = Array of updated velocities
     """
 
-    n_pos = c_pos + (delta_t * c_veloc)
-    n_veloc = c_veloc + (1/atom_mass * force_array)
-
+    n_pos = c_pos + (c_veloc * delta_t) 
+    n_veloc = c_veloc + (1/atom_mass * force_array * delta_t)
+    
     return n_pos, n_veloc
 
 
@@ -96,14 +100,17 @@ def lennard_jones(distance, pot_args):
     inter-particle distance, sigma and epsilon
 
     Args
+    - distance = distance for which to evaluate the potential
     - sigma = Sigma parameter (Particle size) in LS potential
     - epsilon = Epsilon parameter (Temperature) in LS potential
 
     Return
     - pot_val::float = Value of the lennard jones potential for given sigma and epsilon
     """
-    return 4*pot_args['epsilon']*((pot_args['sigma']/distance)**12 - (pot_args['sigma']/distance)**6)
-
+    returnval = 4*pot_args['epsilon']*((pot_args['sigma']/distance)**12 - (pot_args['sigma']/distance)**6)
+    print('d',distance, type(distance)) 
+    print('rv', returnval, type(returnval))
+    return float(returnval)
 
 def forces(c_pos, pot_args):
     """
@@ -114,10 +121,8 @@ def forces(c_pos, pot_args):
     - pot_args::dict = Arguments/constants required to evaluate the potential
 
     Return
-    - force::ndarray = Force on each particle by any other particle
+    - force::ndarray = Summed force on each particle by any other particle (n_atoms x n_dim)  
     """
-    #Vectorize the scalar lennard jones function
-    lj_vect_func = np.vectorize(lennard_jones, excluded=['sigma', 'epsilon'])
 
     #Calculate all pairwise distances between particles
     distance_list = list(sp_dist.pdist(c_pos, 'euclidean')) #small (efficient) list of all pairwise distances
@@ -126,24 +131,31 @@ def forces(c_pos, pot_args):
     distances = np.zeros((c_pos.shape[0], c_pos.shape[0]))
     distances[np.triu_indices(c_pos.shape[0], k=1)] = distance_list
     distances[np.tril_indices(c_pos.shape[0], k=-1)] = distances.T[np.tril_indices(c_pos.shape[0], k=-1)]
-    #Set diagonal of distances to infinity to preven division by zero
-    distances[np.diag_indices(c_pos.shape[0])] = np.inf
-
+    
+    #Vectorize gradient function (low performance):
+    vect_grad_func = np.vectorize(lambda d: sp_optim.approx_fprime(d, lennard_jones, np.sqrt(np.finfo(float).eps), pot_args))
+    
     #For distances matrix calculate the gradient matrix: element i,j -> dU(r_ij)/dr
-    lj_gradient_list = list(sp_optim.approx_fprime(distances, lj_vect_func, np.sqrt(np.finfo(float).eps), pot_args))
+    lj_gradient_list = list(vect_grad_func(np.array(distance_list))) 
     lj_gradient_dist = np.zeros((c_pos.shape[0], c_pos.shape[0]))
     lj_gradient_dist[np.triu_indices(c_pos.shape[0], k=1)] = lj_gradient_list
     lj_gradient_dist[np.tril_indices(c_pos.shape[0], k=-1)] = lj_gradient_dist.T[np.tril_indices(c_pos.shape[0], k=-1)]
     
-    #Calculate grad_r U(r_ij) = (dU/dr) / r_ij * \vec{ pos_i} = matrix  
-    #Need to add third dimension in order to have "vector-entries" x,y,z at each original 2D element i,j
-    lj_gradient_pos = np.tile(lj_gradient_dist/distances, (1, 1, c_pos.shape[1])) * c_pos
+    #Set diagonal of distances to infinity to prevent division by zero in next step
+    distances[np.diag_indices(c_pos.shape[0])] = np.inf
     
-    #Sum over either axis 0 or 1 (and reduce array to 2D with shape n_atoms x n_dim)
-    force_array = -np.sum(lj_gradient_pos, axis=1)
+    #Calculate grad_r U(r_ij) = (dU/dr) / r_ij * \vec{ pos_i} = matrix \
+    # and sum all gradients per particle at same time with dot (instead of *) operation.
+    #To prevent 3D dimensional array multiplication complexity, split array in spatial dims. 
+    lj_gradient_dist_divided_by_r = lj_gradient_dist/distances
     
-    #Note c_pos.shape[0] = particle number, 1= number of dimensions
+    lj_gradient_pos = tuple([np.dot(lj_gradient_dist_divided_by_r, c_pos[:, d]) for d in range(c_pos.shape[1])])
     
+    #Express the force (in particle-wise vectorform) and mind the extra sign flip from force formula.
+    force_array = -np.column_stack(lj_gradient_pos)
+    
+    #Note c_pos.shape[0] = particle number, [1] = number of dimensions = shape of force array
+
     return force_array
 
 class Simulation:
@@ -180,6 +192,7 @@ class Simulation:
 
         print("Succesfully initialized simulation!")
 
+
     def __simulate__(self, n_iterations, delta_t):
         """
         Executes simulation on initialized simulation
@@ -198,12 +211,16 @@ class Simulation:
                 c_force_array = forces(self.pos, self.pot_args)
 
                 n_pos, n_veloc = evolute(self.canvas, self.pos, self.veloc, c_force_array, self.atom_mass, delta_t)
+                
+                #Apply boundary conditions:
+                #n_pos = n_pos
+                
                 self.pos, self.veloc = n_pos, n_veloc
 
                 #Store each iteration in a separate group of datasets
                 datagroup = file.create_group("iter_{index}".format(index=i))
-                datagroup.create_dataset("iter_{index}_pos".format(index=i), self.pos)
-                datagroup.create_dataset("iter_{index}_veloc".format(index=i), self.veloc)
+                datagroup.create_dataset("iter_{index}_pos".format(index=i), data=self.pos)
+                datagroup.create_dataset("iter_{index}_veloc".format(index=i), data=self.veloc)
                 
 
 
@@ -220,7 +237,7 @@ if __name__ == "__main__":
     #    print_usage()
 
     #Hardcoded inputs (Maybe replace with argv arguments)
-    N_atoms = 3 #Number of particles
+    N_ATOMS = 3 #Number of particles
     ATOM_MASS = 6.6335e-26 #Mass of atoms (kg); Argon = 39.948 u
     N_DIM = 2 #Number of dimensions
     MAX_LENGTH = 5 #Canvas side length (m)
@@ -229,7 +246,7 @@ if __name__ == "__main__":
     POT_ARGS = {'sigma': 3.405e-10, 'epsilon': sp_const.k*119.8} #sigma, epsilon for Argon in SI units (see slides Lec. 1)
 
     #Main simulation procedure
-    sim = Simulation(n_atoms=N_atoms, atom_mass=ATOM_MASS, n_dim=N_DIM, canvas_size=CANVAS_SIZE, pot_args=POT_ARGS)
+    sim = Simulation(n_atoms=N_ATOMS, atom_mass=ATOM_MASS, n_dim=N_DIM, canvas_size=CANVAS_SIZE, pot_args=POT_ARGS)
     
     END_OF_TIME = 10.0 #Maximum time (s)
     DELTA_T = 0.1 #Timestep (s)

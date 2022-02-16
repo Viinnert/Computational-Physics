@@ -77,9 +77,10 @@ def evolute(canvas, c_pos, c_veloc, force_array, atom_mass, delta_t):
     n_veloc = c_veloc + (1/atom_mass * force_array * delta_t)
     
     #Apply boundary conditions to particles out of the simulated box
-    mask = np.logical_or(n_pos > math.gcd(*canvas.size),  n_pos < 0)
-    n_pos[mask] = np.mod(n_pos[mask], math.gcd(*canvas.size))
-    n_veloc[mask] = n_veloc[mask]  #No loss of energy with periodic BCs + same direction
+    for d in range(canvas.n_dim):
+        mask = np.logical_or(n_pos[:, d] > canvas.size[d],  n_pos[:, d] < 0)
+        (n_pos[:, d])[mask] = np.mod((n_pos[:, d])[mask], canvas.size[d])
+        (n_veloc[:, d])[mask] = (n_veloc[:, d])[mask]  #No loss of energy with periodic BCs + same direction
     
     return n_pos, n_veloc
 
@@ -116,7 +117,7 @@ def lennard_jones(distance, pot_args):
     return 4*pot_args['epsilon']*((pot_args['sigma']/distance)**12 - (pot_args['sigma']/distance)**6)
 
 
-def forces(c_pos, pot_args):
+def forces(canvas, c_pos, pot_args):
     """
     Calculate and return the force on every particle, due to all other particles
 
@@ -129,7 +130,16 @@ def forces(c_pos, pot_args):
     """
 
     #Calculate all pairwise distances between particles
-    distance_list = list(sp_dist.pdist(c_pos, 'euclidean')) #small (efficient) list of all pairwise distances
+    min_distance_squared = []
+    
+    for d in range(canvas.n_dim):
+        #Minimize pairwise per coordinate for closest instance of point.
+        pdist_d = sp_dist.pdist(c_pos[:, [d]], 'euclidean')
+        pdist_d_min = np.minimum(np.absolute(pdist_d-canvas.size[d]), pdist_d)
+        min_distance_squared.append(pdist_d_min**2) 
+    
+    distance_arr = np.sqrt(np.add.reduce(min_distance_squared))
+    distance_list = list(distance_arr) #minimal (efficient) list of all pairwise distances
     
     #Get distances into symmetric array form with element i,j -> distance r_ij (less efficient)
     distances = np.zeros((c_pos.shape[0], c_pos.shape[0]))
@@ -212,12 +222,14 @@ class Simulation:
         with hdf.File(DATA_PATH + DATA_FILENAME, "w") as file:
             for i in range(1, n_iterations+1):
 
-                c_force_array = forces(self.pos, self.pot_args)
+                c_force_array = forces(self.canvas, self.pos, self.pot_args)
 
                 n_pos, n_veloc = evolute(self.canvas, self.pos, self.veloc, c_force_array, self.atom_mass, delta_t)
                 
                 self.pos, self.veloc = n_pos, n_veloc
 
+                print(self.pos)
+                
                 #Store each iteration in a separate group of datasets
                 datagroup = file.create_group("iter_{index}".format(index=i))
                 datagroup.create_dataset("iter_{index}_pos".format(index=i), data=self.pos)

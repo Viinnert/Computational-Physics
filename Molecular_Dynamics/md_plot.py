@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 
 WORKDIR_PATH = os.getcwd()
 DATA_PATH = WORKDIR_PATH + "/data/" 
-DATA_FILENAME = "data.hdf5"
+DATA_FILENAME = "trajectories.hdf5"
 
 # Initalize plot parameters
 params = {
@@ -37,7 +37,7 @@ params = {
     "legend.fontsize": 9,
     "xtick.labelsize": 10,
     "ytick.labelsize": 10,
-    "text.usetex": True,
+    "text.usetex": False,
     "figure.figsize": (3.15, 3.15),
     "figure.subplot.left": 0.14,
     "figure.subplot.right": 0.99,
@@ -47,7 +47,6 @@ params = {
     "figure.subplot.hspace": 0.12,
     "lines.markersize": 6,
     "lines.linewidth": 2.0,
-    "text.latex.unicode": True,
 }
 mpl.rcParams.update(params)
 mpl.rc("font", **{"family": "sans-serif", "sans-serif": ["Times"]})
@@ -66,19 +65,28 @@ def plot_trajectories(data_file):
     Return
     - --
     """
-    n_iterations = list(data_file.keys())
-
-    #Extract number of dimensions and atoms from any array in file
-    n_atoms, n_dim = data_file["iter_0"]["iter_pos"].shape
+    n_iterations = len(list(data_file.keys()))
+    n_atoms, n_dim = data_file["iter_1"]["iter_1_pos"].shape
     
-    #Plot trajectories iteration-wise
-    for i in range(n_iterations+1):
-        #Get arrays from the data file in shape (n_atoms x n_dim) 
-        current_pos = data_file["iter_{index}".format(index=i)]["iter_{index}_pos".format(index=i)]
-        current_veloc = data_file["iter_{index}".format(index=i)]["iter_{index}_veloc".format(index=i)]
-        
-        #plotFrame() or direct trajectory plotting
+    fig = plt.figure(figsize=(10,7.5))
 
+    #Plot trajectories iteration-wise
+    for i in range(1, 100):
+        plt.clf() # Clear figure / redraw
+        
+        #Get arrays from the data file in shape (n_atoms x n_dim) 
+        current_pos = data_file[f"iter_{i}"][f"iter_{i}_pos"]
+        current_veloc = data_file[f"iter_{i}"][f"iter_{i}_veloc"]
+        
+        plt.scatter(current_pos[:,0], current_pos[:,1])
+        
+        plt.ylim(-50,50)
+        plt.xlim(-50,50)
+
+        plt.pause(0.01)
+
+    plt.show()
+    
 
 ##### Main function to be called at start
 
@@ -92,7 +100,7 @@ if __name__ == "__main__":
         print_usage()
     
     with hdf.File(DATA_PATH + DATA_FILENAME,'r') as data_file:
-
+        
         plot_trajectories(data_file)
 
         #Call other plotting functions from inside here

@@ -9,7 +9,7 @@ Project overview:
 (see separate folder for each project)
 
 ## Authors
-Vincent Krabbenborg (Studentnummer = XXXXXXX)
+Vincent Krabbenborg (Studentnummer = s2029189)
 
-Thomas Rothe (Studentnummer = 1930443)
+Thomas Rothe (Studentnummer = s1930443)
 

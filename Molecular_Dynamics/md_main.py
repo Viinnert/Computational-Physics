@@ -86,21 +86,6 @@ def evolute(canvas, c_pos, c_veloc, force_array, atom_mass, delta_t):
 
 
 
-def initialize_atoms_random(canvas, n_atoms):
-    """
-    Initializes position and velocity of N atoms randomly on canvas and returns them
-
-    Args
-    - canvas::Canvas = Space in which evolution should take place
-
-    Return
-    - pos::ndarray = Array of initial molecule positions
-    - veloc::ndarray = Array of initial molecule velocities
-    """
-    pos = np.random.randn(n_atoms, canvas.n_dim) * canvas.size
-    veloc = np.random.randn(n_atoms, canvas.n_dim) * (canvas.size/4)
-    return pos, veloc
-
 def lennard_jones(distance, pot_args):
     """
     Calculate and return the value of the lennard jones potential for given 
@@ -172,6 +157,19 @@ def forces(canvas, c_pos, pot_args):
 
     return force_array
 
+def initialize_atoms_random(canvas, n_atoms):
+    """
+    Initializes position and velocity of N atoms randomly on canvas and returns them
+    Args
+    - canvas::Canvas = Space in which evolution should take place
+    Return
+    - pos::ndarray = Array of initial molecule positions
+    - veloc::ndarray = Array of initial molecule velocities
+    """
+    pos = np.random.randn(n_atoms, canvas.n_dim) * canvas.size
+    veloc = np.random.randn(n_atoms, canvas.n_dim) * (canvas.size/4)
+    return pos, veloc
+
 class Simulation:
     """
     Defines a molecular simulation with appropiate conditions
@@ -206,6 +204,23 @@ class Simulation:
 
         print("Succesfully initialized simulation!")
 
+    def energies(self):
+        """
+        Calculate and return the kinetic and potential energy on every particle
+
+        Args
+        - c_pos::ndarray = Current position of all particles
+        - pot_args::dict = Arguments/constants required to evaluate the potential
+
+        Return
+        - kin_energy::ndarray = Kinetic energy of every particle
+        - pot_energy::ndarray = Potential energy of every particle
+        """
+        self.kin_energy = 1/2*np.sum(self.veloc*self.veloc, axis=1)
+        self.pot_energy = lennard_jones()
+        
+        return self.kin_energy, self.pot_energy
+
 
     def __simulate__(self, n_iterations, delta_t):
         """
@@ -228,6 +243,8 @@ class Simulation:
                 
                 self.pos, self.veloc = n_pos, n_veloc
 
+                self.pot_energy, self.kin_energy = energies(self.canvas)
+                
                 #Store each iteration in a separate group of datasets
                 datagroup = file.create_group(f"iter_{i}")
                 datagroup.attrs['canvas_size'] = self.canvas.size 

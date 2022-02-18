@@ -81,7 +81,7 @@ def plot_energy(data_file):
 
 def animate_trajectories2D(data_file):
     """
-    Plots the trajectories of particles stored in a given data file.
+    animates the trajectories of particles stored in a given 2D data file.
     
     Args
     - data_file::h5py._hl.files.File = File object from which to extract the trajectory data
@@ -116,6 +116,18 @@ def animate_trajectories2D(data_file):
     plt.show()
     
 def plot_trajectories2D(data_file):
+    """
+    plots the trajectories of particles stored in a given 2D data file.
+    
+    Args
+    - data_file::h5py._hl.files.File = File object from which to extract the trajectory data
+                                       Groups label iterations 'iter_{index}'
+                                       ,groups should contain position and velocity datasets 
+                                       named '{groupname}_pos' and '{groupname}_veloc' 
+
+    Return
+    - --
+    """
     n_iterations = len(list(data_file.keys()))
     n_atoms, n_dim = data_file["iter_1"]["iter_1_pos"].shape
     
@@ -131,6 +143,45 @@ def plot_trajectories2D(data_file):
 
     plt.show()
 
+
+def animate_trajectories3D(data_file):
+    """
+    animates the trajectories of particles stored in a given 3D data file.
+    
+    Args
+    - data_file::h5py._hl.files.File = File object from which to extract the trajectory data
+                                       Groups label iterations 'iter_{index}'
+                                       ,groups should contain position and velocity datasets 
+                                       named '{groupname}_pos' and '{groupname}_veloc' 
+
+    Return
+    - --
+    """
+    n_iterations = len(list(data_file.keys()))
+    n_atoms, n_dim = data_file["iter_1"]["iter_1_pos"].shape
+    
+    fig = plt.figure(figsize=(10,7.5))
+    ax = fig.add_subplot(projection='3d')
+
+    #Plot trajectories iteration-wise
+    for i in range(1, n_iterations):
+        ax.cla() # Clear figure / redraw
+        
+        #Get arrays from the data file in shape (n_atoms x n_dim) 
+        current_pos = data_file[f"iter_{i}"][f"iter_{i}_pos"]
+        
+        cmap = cm.rainbow(np.linspace(0, 1, current_pos[:,1].shape[0])) 
+        ax.scatter(current_pos[:,0], current_pos[:,1], current_pos[:,2], c=cmap)
+        
+        canvas_size = data_file[f"iter_{i}"].attrs["canvas_size"]
+        ax.set_xlim(0, canvas_size[0])
+        ax.set_ylim(0, canvas_size[1])
+        ax.set_zlim(0, canvas_size[2])
+
+        plt.pause(0.1)
+    
+    plt.show()
+
 ##### Main function to be called at start
 
 if __name__ == "__main__":
@@ -144,5 +195,5 @@ if __name__ == "__main__":
     
     with hdf.File(DATA_PATH + DATA_FILENAME,'r') as data_file:
         
-        #animate_trajectories2D(data_file)
-        plot_trajectories2D(data_file)
+        animate_trajectories3D(data_file)
+        #plot_trajectories2D(data_file)

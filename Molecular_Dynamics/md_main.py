@@ -287,7 +287,7 @@ if __name__ == "__main__":
     #    print_usage()
 
     # Hardcoded inputs (Maybe replace with argv arguments)
-    N_DIM = 2 # Number of dimensions
+    N_DIM = 3 # Number of dimensions
     N_ATOMS = 2 # Number of particles
     TEMPERATURE = 100 # Kelvin
     ATOM_MASS = 6.6335e-26 # Mass of atoms (kg); Argon = 39.948 u
@@ -295,7 +295,8 @@ if __name__ == "__main__":
     
     # Dimensionless constants
     MAX_LENGTH = 5
-    CANVAS_SIZE = np.array([MAX_LENGTH, MAX_LENGTH]) # Canvas size (must be ndarray!)
+    #CANVAS_SIZE = np.array([MAX_LENGTH, MAX_LENGTH]) # 2D canvas size (must be ndarray!)
+    CANVAS_SIZE = np.array([MAX_LENGTH, MAX_LENGTH, MAX_LENGTH]) # 3D canvas size (must be ndarray!)
     END_OF_TIME = 0.5 # Maximum time
     DELTA_T = 0.01 # Timestep
     N_ITERATIONS = int(END_OF_TIME / DELTA_T)

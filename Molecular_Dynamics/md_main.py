@@ -287,16 +287,18 @@ if __name__ == "__main__":
     #    print_usage()
 
     # Hardcoded inputs (Maybe replace with argv arguments)
-    N_DIM = 2 # Number of dimensions
+    N_DIM = 3 # Number of dimensions
     N_ATOMS = 2 # Number of particles
     TEMPERATURE = 100 # Kelvin
     ATOM_MASS = 6.6335e-26 # Mass of atoms (kg); Argon = 39.948 u
     POT_ARGS = {'sigma': 3.405e-10, 'epsilon': sp_const.k*119.8} # sigma, epsilon for Argon in SI units (see slides Lec. 1)
     
     # Dimensionless constants
+
     MAX_LENGTH = 8
     CANVAS_SIZE = np.array([MAX_LENGTH, MAX_LENGTH]) # Canvas size (must be ndarray!)
     END_OF_TIME = 2 # Maximum time
+
     DELTA_T = 0.01 # Timestep
     N_ITERATIONS = int(END_OF_TIME / DELTA_T)
     

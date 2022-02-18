@@ -71,7 +71,7 @@ def plot_trajectories2D(data_file):
     fig = plt.figure(figsize=(10,7.5))
 
     #Plot trajectories iteration-wise
-    for i in range(1, 100):
+    for i in range(1, n_iterations):
         plt.clf() # Clear figure / redraw
         
         #Get arrays from the data file in shape (n_atoms x n_dim) 
@@ -85,10 +85,9 @@ def plot_trajectories2D(data_file):
         plt.ylim(0, canvas_size[0])
         plt.xlim(0, canvas_size[1])
 
-        plt.pause(0.5)
+        plt.pause(0.01)
 
     plt.show()
-    
 
 ##### Main function to be called at start
 

@@ -54,7 +54,7 @@ class Canvas:
 
 
 
-def evolute(canvas, c_pos, c_veloc, force_array, atom_mass, delta_t):
+def evolute(canvas, c_pos, c_veloc, force_array, atom_mass, delta_t, pot_args):
     """
     Evolutes the particles position and velocity arrays
     via Newtonian EOM with Lennard-Jones Potential and returns updated
@@ -74,7 +74,7 @@ def evolute(canvas, c_pos, c_veloc, force_array, atom_mass, delta_t):
     """
 
     n_pos = c_pos + (c_veloc * delta_t) 
-    n_veloc = c_veloc + (1/atom_mass * force_array * delta_t)
+    n_veloc = c_veloc - (pot_args['epsilon']/(atom_mass*pot_args['sigma']) * force_array * delta_t)
     
     #Apply boundary conditions to particles out of the simulated box
     for d in range(canvas.n_dim):
@@ -98,7 +98,7 @@ def initialize_atoms_random(canvas, n_atoms):
     - veloc::ndarray = Array of initial molecule velocities
     """
     pos = np.random.randn(n_atoms, canvas.n_dim) * canvas.size
-    veloc = np.random.randn(n_atoms, canvas.n_dim) * (canvas.size/4)
+    veloc = np.random.randn(n_atoms, canvas.n_dim) * (canvas.size/4) *0.000001
     return pos, veloc
 
 def lennard_jones(distance, pot_args):
@@ -114,8 +114,7 @@ def lennard_jones(distance, pot_args):
     Return
     - pot_val::float = Value of the lennard jones potential for given sigma and epsilon
     """
-    return 4*pot_args['epsilon']*((pot_args['sigma']/distance)**12 - (pot_args['sigma']/distance)**6)
-
+    return 4 * ( (1/distance)**12 - (1/distance)**6 )
 
 def forces(canvas, c_pos, pot_args):
     """
@@ -224,7 +223,7 @@ class Simulation:
 
                 c_force_array = forces(self.canvas, self.pos, self.pot_args)
                 print(c_force_array)
-                n_pos, n_veloc = evolute(self.canvas, self.pos, self.veloc, c_force_array, self.atom_mass, delta_t)
+                n_pos, n_veloc = evolute(self.canvas, self.pos, self.veloc, c_force_array, self.atom_mass, delta_t, self.pot_args)
                 
                 self.pos, self.veloc = n_pos, n_veloc
 
@@ -234,8 +233,6 @@ class Simulation:
                 datagroup.create_dataset(f"iter_{i}_pos", data=self.pos)
                 datagroup.create_dataset(f"iter_{i}_veloc", data=self.veloc)
                 
-
-
 
 ##### Main function to be called at start
 
@@ -248,19 +245,20 @@ if __name__ == "__main__":
     #if len(sys.argv) != required_args:
     #    print_usage()
 
-    #Hardcoded inputs (Maybe replace with argv arguments)
-    N_ATOMS = 20 #Number of particles
-    ATOM_MASS = 6.6335e-26 #Mass of atoms (kg); Argon = 39.948 u
-    N_DIM = 2 #Number of dimensions
-    MAX_LENGTH = 0.1/(1.664e3/ATOM_MASS) * 10e19 #Canvas side length (m): orient at normal density at T_room
-    CANVAS_SIZE = np.array([MAX_LENGTH, MAX_LENGTH]) #Canvas size (must be ndarray!)
+    # Hardcoded inputs (Maybe replace with argv arguments)
+    N_DIM = 2 # Number of dimensions
+    N_ATOMS = 2 # Number of particles
+    TEMPERATURE = 100 # Kelvin
+    ATOM_MASS = 6.6335e-26 # Mass of atoms (kg); Argon = 39.948 u
+    POT_ARGS = {'sigma': 3.405e-10, 'epsilon': sp_const.k*119.8} # sigma, epsilon for Argon in SI units (see slides Lec. 1)
     
-    POT_ARGS = {'sigma': 3.405e-10, 'epsilon': sp_const.k*119.8} #sigma, epsilon for Argon in SI units (see slides Lec. 1)
-
+    # Dimensionless constants
+    MAX_LENGTH = 5
+    CANVAS_SIZE = np.array([MAX_LENGTH, MAX_LENGTH]) # Canvas size (must be ndarray!)
+    END_OF_TIME = 0.5 # Maximum time
+    DELTA_T = 0.01 # Timestep
+    N_ITERATIONS = int(END_OF_TIME / DELTA_T)
+    
     #Main simulation procedure
     sim = Simulation(n_atoms=N_ATOMS, atom_mass=ATOM_MASS, n_dim=N_DIM, canvas_size=CANVAS_SIZE, pot_args=POT_ARGS)
-    
-    END_OF_TIME = 5.0 #Maximum time (s)
-    DELTA_T = 0.005 #Timestep (s)
-    N_ITERATIONS = int(END_OF_TIME / DELTA_T)
-    sim.__simulate__(n_iterations=N_ITERATIONS, delta_t = DELTA_T)
+    sim.__simulate__(n_iterations=N_ITERATIONS, delta_t=DELTA_T)

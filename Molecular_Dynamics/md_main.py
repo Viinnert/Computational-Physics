@@ -75,10 +75,10 @@ def sym_upper_triang_mat(upper_entries, mat_size):
     Return
     - sut_mat::ndarray = Symmetric Upper-Trinagular (size x size) matrix with zero diagonal
     """
-    if len(upper_entries) != int((mat_size**2 - mat_size)/2)
+    if len(upper_entries) != int((mat_size**2 - mat_size)/2):
         raise ValueError("The provided list should match the number of upper triangular entries for a matrix of the given size")
     
-    sut_mat = np.zeros(mat_size, mat_size))
+    sut_mat = np.zeros((mat_size, mat_size))
     sut_mat[np.triu_indices(mat_size, k=1)] = upper_entries
     sut_mat[np.tril_indices(mat_size, k=-1)] = sut_mat.T[np.tril_indices(mat_size, k=-1)]
     return sut_mat
@@ -112,7 +112,7 @@ class Simulation:
         self.canvas = Canvas(n_dim, canvas_size)
         
         #Initialize and save state of simulation:
-        self.pos, self.veloc = self.initialize_atoms_random(self.canvas, n_atoms)
+        self.pos, self.veloc = self.initialize_atoms_random()
 
         print("Succesfully initialized simulation!")
 
@@ -148,7 +148,7 @@ class Simulation:
         - n_veloc::ndarray = Array of updated velocities
         """
 
-        n_pos = self.pos + (self.c_veloc * delta_t) 
+        n_pos = self.pos + (self.veloc * delta_t) 
         n_veloc = self.veloc - (self.pot_args['epsilon']/(self.atom_mass*self.pot_args['sigma']) * force_array * delta_t)
         
         #Apply boundary conditions to particles out of the simulated box
@@ -201,7 +201,7 @@ class Simulation:
             
             #Get distances into symmetric array form with element i,j -> distance r_ij (less efficient) 
             # and sum potential  energy contributions for each particle
-            self.pot_energy = np.sum(sym_upper_triang_mat(list(lennard_jones(distance_arr, self.n_atoms))), axis=1)
+            self.pot_energy = np.sum(sym_upper_triang_mat(list(lennard_jones(distance_arr, self.pot_args)), self.n_atoms), axis=1)
             
             return self.kin_energy, self.pot_energy
         
@@ -257,9 +257,12 @@ class Simulation:
         with hdf.File(DATA_PATH + DATA_FILENAME, "w") as file:
             for i in range(1, n_iterations+1):
 
-                c_force_array = self.forces(self.canvas, self.pos, self.pot_args)
+                c_force_array = self.forces()
                 print(c_force_array)
-                n_pos, n_veloc = self.evolute(self.canvas, self.pos, self.veloc, c_force_array, self.atom_mass, delta_t, self.pot_args)
+                n_pos, n_veloc = self.evolute(c_force_array, delta_t)
+                
+                #Retrieve current kinetic and potential energies
+                kin_energies, pot_energies = self.energies()
                 
                 self.pos, self.veloc = n_pos, n_veloc
 
@@ -268,6 +271,8 @@ class Simulation:
                 datagroup.attrs['canvas_size'] = self.canvas.size 
                 datagroup.create_dataset(f"iter_{i}_pos", data=self.pos)
                 datagroup.create_dataset(f"iter_{i}_veloc", data=self.veloc)
+                datagroup.create_dataset(f"iter_{i}_kin_energy", data=kin_energies)
+                datagroup.create_dataset(f"iter_{i}_pot_energy", data=pot_energies)
                 
 
 ##### Main function to be called at start

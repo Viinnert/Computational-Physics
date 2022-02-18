@@ -79,15 +79,16 @@ def plot_energy(data_file):
 
 
 
-def plot_trajectories2D(data_file):
+def animate_trajectories2D(data_file):
     """
-    Plots the 2D trajectories of particles stored in a given data file.
+    Plots the trajectories of particles stored in a given data file.
     
     Args
     - data_file::h5py._hl.files.File = File object from which to extract the trajectory data
                                        Groups label iterations 'iter_{index}'
                                        ,groups should contain position and velocity datasets 
                                        named '{groupname}_pos' and '{groupname}_veloc' 
+
     Return
     - --
     """
@@ -102,7 +103,6 @@ def plot_trajectories2D(data_file):
         
         #Get arrays from the data file in shape (n_atoms x n_dim) 
         current_pos = data_file[f"iter_{i}"][f"iter_{i}_pos"]
-        current_veloc = data_file[f"iter_{i}"][f"iter_{i}_veloc"]
         
         cmap = cm.rainbow(np.linspace(0, 1, current_pos[:,1].shape[0])) 
         plt.scatter(current_pos[:,0], current_pos[:,1], c=cmap)
@@ -111,7 +111,23 @@ def plot_trajectories2D(data_file):
         plt.ylim(0, canvas_size[0])
         plt.xlim(0, canvas_size[1])
 
-        plt.pause(0.01)
+        plt.pause(0.1)
+    
+    plt.show()
+    
+def plot_trajectories2D(data_file):
+    n_iterations = len(list(data_file.keys()))
+    n_atoms, n_dim = data_file["iter_1"]["iter_1_pos"].shape
+    
+    # Create 3D array of positions
+    current_pos = np.empty((n_iterations,n_atoms,n_dim))
+    for i in range(1, n_iterations):
+        current_pos[i,:,:] = data_file[f"iter_{i}"][f"iter_{i}_pos"]
+        
+    # Plot trajectories iteration-wise
+    fig = plt.figure(figsize=(10,7.5))
+    for i in range(0, n_atoms):
+        plt.plot(current_pos[:,i,0], current_pos[:,i,1])
 
     plt.show()
 
@@ -128,4 +144,5 @@ if __name__ == "__main__":
     
     with hdf.File(DATA_PATH + DATA_FILENAME,'r') as data_file:
         
+        #animate_trajectories2D(data_file)
         plot_trajectories2D(data_file)

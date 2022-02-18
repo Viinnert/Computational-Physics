@@ -127,7 +127,7 @@ class Simulation:
         """
         
         self.pos = np.random.randn(self.n_atoms, self.canvas.n_dim) * self.canvas.size
-        self.veloc = np.random.randn(self.n_atoms, self.canvas.n_dim) * (self.canvas.size/4) #*0.000001
+        self.veloc = np.random.randn(self.n_atoms, self.canvas.n_dim) * (self.canvas.size/12) 
         return self.pos, self.veloc
 
     def evolute(self, force_array, delta_t):
@@ -149,7 +149,7 @@ class Simulation:
         """
 
         n_pos = self.pos + (self.veloc * delta_t) 
-        n_veloc = self.veloc - (self.pot_args['epsilon']/(self.atom_mass*self.pot_args['sigma']) * force_array * delta_t)
+        n_veloc = self.veloc - (force_array * delta_t)
         
         #Apply boundary conditions to particles out of the simulated box
         for d in range(self.canvas.n_dim):
@@ -294,9 +294,9 @@ if __name__ == "__main__":
     POT_ARGS = {'sigma': 3.405e-10, 'epsilon': sp_const.k*119.8} # sigma, epsilon for Argon in SI units (see slides Lec. 1)
     
     # Dimensionless constants
-    MAX_LENGTH = 5
+    MAX_LENGTH = 8
     CANVAS_SIZE = np.array([MAX_LENGTH, MAX_LENGTH]) # Canvas size (must be ndarray!)
-    END_OF_TIME = 0.5 # Maximum time
+    END_OF_TIME = 2 # Maximum time
     DELTA_T = 0.01 # Timestep
     N_ITERATIONS = int(END_OF_TIME / DELTA_T)
     

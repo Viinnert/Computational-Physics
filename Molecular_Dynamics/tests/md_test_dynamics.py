@@ -12,8 +12,8 @@ from md_plot import *
 def simple_init(size):
     i_pos = np.array([[0.3*size[0], 0.51 *size[1]],
                       [0.7*size[0], 0.49 *size[1]]])
-    i_veloc = np.array([[0.6, 0],
-                        [-0.6, 0]])
+    i_veloc = np.array([[1, 0],
+                        [-1, 0]])
 
     return i_pos, i_veloc
 
@@ -29,7 +29,7 @@ if __name__ == "__main__":
     
     # Hardcoded inputs (Maybe replace with argv arguments)
     N_DIM = 2 # Number of dimensions
-    N_ATOMS = 2 # Number of particles
+    N_ATOMS = 4 # Number of particles
     TEMPERATURE = 100 # Kelvin
     ATOM_MASS = 6.6335e-26 # Mass of atoms (kg); Argon = 39.948 u
     POT_ARGS = {'sigma': 3.405e-10, 'epsilon': sp_const.k*119.8} # sigma, epsilon for Argon in SI units (see slides Lec. 1)
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     
     # Dimensionless constants
 
-    MAX_LENGTH = 20
+    MAX_LENGTH = 10
     CANVAS_SIZE = np.array([MAX_LENGTH, MAX_LENGTH]) # Canvas size (must be ndarray!)
     END_OF_TIME = 10 # Maximum time
 
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     N_ITERATIONS = int(END_OF_TIME / DELTA_T)
     
     INIT_MODE = "random"
-    INIT_MODE = lambda: simple_init(CANVAS_SIZE)
+    #INIT_MODE = lambda: simple_init(CANVAS_SIZE)
     
     DATA_PATH = WORKDIR_PATH + "data/" 
     DATA_FILENAME = "trajectories.hdf5"

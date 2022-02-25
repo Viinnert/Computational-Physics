@@ -20,12 +20,14 @@ import os
 import sys
 from time import sleep
 from tkinter.tix import MAX
+from matplotlib.pyplot import axis
 import numpy as np
 import h5py as hdf
 import scipy as sp
 import scipy.constants as sp_const
 import scipy.spatial.distance as sp_dist
 import scipy.optimize as sp_optim
+from itertools import combinations
 
 ###### Main program:
 
@@ -58,9 +60,9 @@ def lennard_jones(distance, pot_args):
     """
     return 4 * ( (1/distance)**12 - (1/distance)**6 )
 
-def sym_upper_triang_mat(upper_entries, mat_size):
+def upper_triang_mat(upper_entries, mat_size,  symmetric):
     """
-    Returns a symmetric upper-trinagular matrix for a given list of upper-trinagular entries with zero diagonal
+    Returns a (anti-)symmetric upper-trinagular matrix for a given list of upper-trinagular entries with zero diagonal
                                 / 0  a  b  c \ 
                                |  a  0  d  e  | 
     e.g. [a, b, c, d, e, f] -> |  b  d  0  f  |
@@ -70,15 +72,43 @@ def sym_upper_triang_mat(upper_entries, mat_size):
     - upper_entries::list = list of strictly upper triangular entries
     - mat_size::Int = Target Matrix size n for an (n x x) output matrix.
     Return
-    - sut_mat::ndarray = Symmetric Upper-Trinagular (size x size) matrix with zero diagonal
+    - sut_mat::ndarray = (anit-)Symmetric Upper-Trinagular (size x size) matrix with zero diagonal
     """
     if len(upper_entries) != int((mat_size**2 - mat_size)/2):
         raise ValueError("The provided list should match the number of upper triangular entries for a matrix of the given size")
     
     sut_mat = np.zeros((mat_size, mat_size))
     sut_mat[np.triu_indices(mat_size, k=1)] = upper_entries
-    sut_mat[np.tril_indices(mat_size, k=-1)] = sut_mat.T[np.tril_indices(mat_size, k=-1)]
+    if symmetric: 
+        sut_mat[np.tril_indices(mat_size, k=-1)] = sut_mat.T[np.tril_indices(mat_size, k=-1)]
+    else:
+        sut_mat[np.tril_indices(mat_size, k=-1)] = -sut_mat.T[np.tril_indices(mat_size, k=-1)]
     return sut_mat
+
+
+def pdiff(coord_array, return_distance=False):
+    """
+        Pairwise (eucledian) difference
+        Note: Similar to pdist in the scipy package.
+        
+        Args
+        - coord_array::ndarray = 2D array (n_coordinates x n_dim)
+        - return_distance::bool = Whether to return also the pairwise euclidean distance
+        Return
+        - 
+    """
+    if len(coord_array.shape) != 2:
+        raise ValueError("The coordinate array should be 2 dimensional but isn't")
+    
+    pairs = list(combinations(range(coord_array.shape[0]), 2))
+    pair_i, pair_j = zip(*pairs)
+    differences = coord_array[pair_i, :] - coord_array[pair_j, :]
+    if not return_distance:
+        return differences
+    else:
+        distances = np.linalg.norm(differences, axis=1)
+        return differences, distances
+    
 
 class Simulation:
     """
@@ -132,8 +162,9 @@ class Simulation:
         - veloc::ndarray = Array of initial molecule velocities
         """
         
-        self.pos = np.random.randn(self.n_atoms, self.canvas.n_dim) * self.canvas.size
-        self.veloc = np.random.randn(self.n_atoms, self.canvas.n_dim) * (self.canvas.size/12) 
+        self.pos = (np.random.randn(self.n_atoms, self.canvas.n_dim) * self.canvas.size) % np.gcd(*self.canvas.size)
+        self.veloc = np.random.randn(self.n_atoms, self.canvas.n_dim) * (self.canvas.size/6) 
+        print("Initial positions", self.pos)
         return self.pos, self.veloc
 
     def evolute(self, force_array, delta_t):
@@ -165,29 +196,46 @@ class Simulation:
         
         return n_pos, n_veloc
 
-    def distances(self):
+    def distances(self, return_differences=True):
         """
         Calculate and return the reduced array of unique inter-particle distances
         
         Args
-        - c_pos::ndarray = Current position of all particles
-        - pot_args::dict = Arguments/constants required to evaluate the potential
-
+        - return_differences::bool = Whether, beside absolute distances, also differences x_i - x_j in each coordinate should be returned.
         Return
         - distances_arr::ndarray = Inter-particle distance between any unique pair of particles
+        - differences_per_dim::list(ndarray) = Inter-particle distance (unique) per dimension component
         """
         
         #Calculate all pairwise distances between particles
         min_distance_squared = []
+        differences_per_dim = []
         
         for d in range(self.canvas.n_dim):
             #Minimize pairwise per coordinate for closest instance of point.
-            pdist_d = sp_dist.pdist(self.pos[:, [d]], 'euclidean')
-            pdist_d_min = np.minimum(np.absolute(pdist_d-self.canvas.size[d]), pdist_d)
-            min_distance_squared.append(pdist_d_min**2) 
+            #pdist_d = sp_dist.pdist(self.pos[:, [d]], 'euclidean')
+            pdiff_d = pdiff(self.pos[:, [d]], return_distance=False).reshape(-1)
+            
+            
+            #Find minimum distance instance of interacting particle for dimension d.
+            pdist_d_options = np.vstack((np.absolute(pdiff_d), np.absolute(np.absolute(pdiff_d)-self.canvas.size[d]))).T
+            
+            pdist_d_min = np.argmin(pdist_d_options, axis=1)
+            
+            min_distance_squared.append(pdist_d_options[np.arange(pdiff_d.shape[0]), pdist_d_min]**2)
+            
+            #Correct distance if minimum was outside of simulated canvas
+            # -> determine whether +L or -L needs to be added if minimum was outside of simulated canvas
+            pdiff_d_signs = np.ones(pdiff_d.shape)
+            pdiff_d_signs[pdiff_d < 0] = -1
+            
+            differences_per_dim.append(pdiff_d - (pdist_d_min * pdiff_d_signs*self.canvas.size[d]))
         
-        return np.sqrt(np.add.reduce(min_distance_squared))
-    
+        if return_differences:
+            return np.sqrt(np.add.reduce(min_distance_squared)), differences_per_dim
+        else:
+            return np.sqrt(np.add.reduce(min_distance_squared))
+        
     def energies(self):
             """
             Calculate and return the kinetic and potential energy on every particle
@@ -203,11 +251,11 @@ class Simulation:
             self.kin_energy = 1/2*np.sum(self.veloc*self.veloc, axis=1)
             
             #Obtain current interparticle distances
-            distance_arr = self.distances() #minimal (efficient) list of all pairwise distances
+            distance_arr = self.distances(return_differences=False) #minimal (efficient) list of all pairwise distances
             
             #Get distances into symmetric array form with element i,j -> distance r_ij (less efficient) 
             # and sum potential  energy contributions for each particle
-            self.pot_energy = np.sum(sym_upper_triang_mat(list(lennard_jones(distance_arr, self.pot_args)), self.n_atoms), axis=1)
+            self.pot_energy = np.sum(upper_triang_mat(list(lennard_jones(distance_arr, self.pot_args)), self.n_atoms, symmetric=True), axis=1)
             
             return self.kin_energy, self.pot_energy
         
@@ -220,17 +268,18 @@ class Simulation:
         Return
         - force::ndarray = Summed force on each particle by any other particle (n_atoms x n_dim)  
         """
-        distance_list = list(self.distances()) #minimal (efficient) list of all pairwise distances
+        distance_list, differences_per_dim = self.distances() #minimal (efficient) list of all pairwise distances
+        distance_list = list(distance_list)
         
         #Get distances into symmetric array form with element i,j -> distance r_ij (less efficient)
-        distance_mat = sym_upper_triang_mat(distance_list, self.n_atoms)
+        distance_mat = upper_triang_mat(distance_list, self.n_atoms,  symmetric=True)
 
         #Vectorize gradient function (low performance):
         vect_grad_func = np.vectorize(lambda d: sp_optim.approx_fprime(d, lennard_jones, np.sqrt(np.finfo(float).eps), self.pot_args))
         
         #For distances matrix calculate the gradient matrix: element i,j -> dU(r_ij)/dr
         lj_gradient_list = list(vect_grad_func(np.array(distance_list))) 
-        lj_gradient_dist = sym_upper_triang_mat(lj_gradient_list, self.n_atoms)
+        lj_gradient_dist = upper_triang_mat(lj_gradient_list, self.n_atoms, symmetric=True)
 
         #Set diagonal of distances to infinity to prevent division by zero in next step
         distance_mat[np.diag_indices(self.n_atoms)] = np.inf
@@ -240,7 +289,9 @@ class Simulation:
         #To prevent 3D dimensional array multiplication complexity, split array in spatial dims. 
         lj_gradient_dist_divided_by_r = lj_gradient_dist/distance_mat
         
-        lj_gradient_pos = tuple([np.dot(lj_gradient_dist_divided_by_r, self.pos[:, d]) for d in range(self.n_dim)])
+        #Apply the chain rule of the gradient x,y,z to distance r
+        lj_gradient_pos = tuple([np.sum(np.multiply(lj_gradient_dist_divided_by_r, upper_triang_mat(list(-differences_per_dim[d]), self.n_atoms,symmetric=False)), axis=1) for d in range(self.n_dim)])
+        #Note: minus sign before distance matrix required to match index i in F_i + sum_j grad_ij to axis=0 of gradient matrix with elements ij. (i.e. positive difference below diagonal)
         
         #Express the force (in particle-wise vectorform) and mind the extra sign flip from force formula.
         force_array = -np.column_stack(lj_gradient_pos)
@@ -264,11 +315,12 @@ class Simulation:
             for i in range(1, n_iterations+1):
 
                 c_force_array = self.forces()
-                print(c_force_array)
+                print("Force", c_force_array)
                 n_pos, n_veloc = self.evolute(c_force_array, delta_t)
                 
                 #Retrieve current kinetic and potential energies
                 kin_energies, pot_energies = self.energies()
+                print("Veloc", np.sum(n_veloc, axis=0))
                 
                 self.pos, self.veloc = n_pos, n_veloc
 

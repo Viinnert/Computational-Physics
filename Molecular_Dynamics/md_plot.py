@@ -18,10 +18,6 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-WORKDIR_PATH = os.path.dirname(os.path.realpath(__file__))
-DATA_PATH = WORKDIR_PATH + "/data/" 
-DATA_FILENAME = "trajectories.hdf5"
-
 # Initalize plot parameters
 params = {
     "axes.labelsize": 10,
@@ -52,19 +48,19 @@ def plot_energy(data_file):
     Args
     - data_file::h5py._hl.files.File = File object from which to extract the energy data
                                        Groups label iterations 'iter_{index}'
-                                       ,groups should contain position and velocity datasets 
-                                       named '{groupname}_pos' and '{groupname}_veloc' 
+                                       
 
     Return
     - --
     """
     n_iterations = len(list(data_file.keys()))
     
-    delta_t = data_file[f"iter_0"].attrs["delta_t"]
+    delta_t = data_file[f"iter_1"].attrs["delta_t"]
     
-    time = np.arange(0, n_iterations)*delta_t
-    pot_energy = [data_file[f"iter_{i}"][f"iter_{i}_kin_energy"] for i in range(1, n_iterations)]
-    kin_energy = [data_file[f"iter_{i}"][f"iter_{i}_pot_energy"] for i in range(1, n_iterations)]
+    time = np.arange(0, n_iterations-1)*delta_t
+    
+    pot_energy = np.array([np.sum(data_file[f"iter_{i}"][f"iter_{i}_kin_energy"]) for i in range(1, n_iterations)])
+    kin_energy = np.array([np.sum(data_file[f"iter_{i}"][f"iter_{i}_pot_energy"]) for i in range(1, n_iterations)])
     tot_energy = pot_energy + kin_energy
     
     fig = plt.figure(figsize=(10,7.5))
@@ -99,49 +95,26 @@ def animate_trajectories2D(data_file):
 
     #Plot trajectories iteration-wise
     for i in range(1, n_iterations):
-        plt.clf() # Clear figure / redraw
+        #plt.clf() # Clear figure / redraw
         
         #Get arrays from the data file in shape (n_atoms x n_dim) 
         current_pos = data_file[f"iter_{i}"][f"iter_{i}_pos"]
         
         cmap = cm.rainbow(np.linspace(0, 1, current_pos[:,1].shape[0])) 
-        plt.scatter(current_pos[:,0], current_pos[:,1], c=cmap)
+        
+        current_point_scatter = plt.scatter(current_pos[:,0], current_pos[:,1], c=cmap, marker="o", s=54)
         
         canvas_size = data_file[f"iter_{i}"].attrs["canvas_size"]
         plt.ylim(0, canvas_size[0])
         plt.xlim(0, canvas_size[1])
 
-        plt.pause(0.1)
-    
-    plt.show()
-    
-def plot_trajectories2D(data_file):
-    """
-    plots the trajectories of particles stored in a given 2D data file.
-    
-    Args
-    - data_file::h5py._hl.files.File = File object from which to extract the trajectory data
-                                       Groups label iterations 'iter_{index}'
-                                       ,groups should contain position and velocity datasets 
-                                       named '{groupname}_pos' and '{groupname}_veloc' 
-
-    Return
-    - --
-    """
-    n_iterations = len(list(data_file.keys()))
-    n_atoms, n_dim = data_file["iter_1"]["iter_1_pos"].shape
-    
-    # Create 3D array of positions
-    current_pos = np.empty((n_iterations,n_atoms,n_dim))
-    for i in range(1, n_iterations):
-        current_pos[i,:,:] = data_file[f"iter_{i}"][f"iter_{i}_pos"]
+        plt.pause(0.02)
         
-    # Plot trajectories iteration-wise
-    fig = plt.figure(figsize=(10,7.5))
-    for i in range(0, n_atoms):
-        plt.plot(current_pos[:,i,0], current_pos[:,i,1])
-
+        past_point_scatter = plt.scatter(current_pos[:,0], current_pos[:,1], c=cmap, marker=".", s=6)
+        current_point_scatter.remove()
+        
     plt.show()
+    
 
 
 def animate_trajectories3D(data_file):
@@ -165,20 +138,24 @@ def animate_trajectories3D(data_file):
 
     #Plot trajectories iteration-wise
     for i in range(1, n_iterations):
-        ax.cla() # Clear figure / redraw
+        #ax.cla() # Clear figure / redraw
         
         #Get arrays from the data file in shape (n_atoms x n_dim) 
         current_pos = data_file[f"iter_{i}"][f"iter_{i}_pos"]
         
         cmap = cm.rainbow(np.linspace(0, 1, current_pos[:,1].shape[0])) 
-        ax.scatter(current_pos[:,0], current_pos[:,1], current_pos[:,2], c=cmap)
+        current_point_scatter = ax.scatter(current_pos[:,0], current_pos[:,1], current_pos[:,2], c=cmap, marker="o")
         
         canvas_size = data_file[f"iter_{i}"].attrs["canvas_size"]
         ax.set_xlim(0, canvas_size[0])
         ax.set_ylim(0, canvas_size[1])
         ax.set_zlim(0, canvas_size[2])
 
-        plt.pause(0.1)
+        plt.pause(0.2)
+        
+        #Remove current position pointer and add trail to plot
+        past_point_scatter = plt.scatter(current_pos[:,0], current_pos[:,1], c=cmap, marker=".")
+        current_point_scatter.remove()
     
     plt.show()
 
@@ -192,6 +169,14 @@ if __name__ == "__main__":
     required_args = 0
     if len(sys.argv) != required_args:
         print_usage()
+    
+    global WORKDIR_PATH 
+    WORKDIR_PATH = os.path.dirname(os.path.realpath(__file__))
+    global DATA_PATH 
+    DATA_PATH = WORKDIR_PATH + "/data/" 
+    global DATA_FILENAME 
+    DATA_FILENAME = "trajectories.hdf5" 
+
     
     with hdf.File(DATA_PATH + DATA_FILENAME,'r') as data_file:
         

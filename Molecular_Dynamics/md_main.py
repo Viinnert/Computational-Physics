@@ -14,6 +14,7 @@ Functions:
 
 from ctypes.wintypes import POINT
 import math
+from multiprocessing.pool import INIT
 from multiprocessing.sharedctypes import Value
 import os
 import sys
@@ -25,10 +26,6 @@ import scipy as sp
 import scipy.constants as sp_const
 import scipy.spatial.distance as sp_dist
 import scipy.optimize as sp_optim
-
-WORKDIR_PATH = os.path.dirname(os.path.realpath(__file__))
-DATA_PATH = WORKDIR_PATH + "/data/" 
-DATA_FILENAME = "trajectories.hdf5"
 
 ###### Main program:
 
@@ -94,26 +91,35 @@ class Simulation:
     - time::ndarray = Ordered array of all time values to simulate over
     - delta_t::float = Timestep per iteration in simulation; Should equal used timestep in time array
     - pot_args::dict = Dictionary with arguments (e.g. constants) required for calculating the potential 
+    - init_mode::string or callable = Specify method to initialize positions and velocities
     """
-    def __init__(self, n_atoms, atom_mass, n_dim, canvas_size, pot_args):
+    def __init__(self, n_atoms, atom_mass, n_dim, canvas_size, pot_args, init_mode, data_path, data_filename):
         self.n_atoms = n_atoms
         self.atom_mass = atom_mass
         self.n_dim = n_dim
         self.canvas_size = canvas_size
         self.pot_args = pot_args
-
+        self.data_path = data_path
+        self.data_filename = data_filename
+        
         #Check for correct (dimensional) format of size
         if type(canvas_size) != np.ndarray:
             raise ValueError('Provide size of canvas as numpy array.')
     
         elif canvas_size.shape != (n_dim,):
+            print(canvas_size.shape)
             raise ValueError('Check number of dimensions of the canvas size array.')
 
         self.canvas = Canvas(n_dim, canvas_size)
         
         #Initialize and save state of simulation:
-        self.pos, self.veloc = self.initialize_atoms_random()
-
+        if init_mode == "random":
+            self.pos, self.veloc = self.initialize_atoms_random()
+        elif callable(init_mode):
+            self.pos, self.veloc = init_mode()
+        else:
+            raise ValueError("Unknown initialization mode; Give ")
+        
         print("Succesfully initialized simulation!")
 
     def initialize_atoms_random(self):
@@ -254,7 +260,7 @@ class Simulation:
         - --
         """
 
-        with hdf.File(DATA_PATH + DATA_FILENAME, "w") as file:
+        with hdf.File(self.data_path + self.data_filename, "w") as file:
             for i in range(1, n_iterations+1):
 
                 c_force_array = self.forces()
@@ -268,7 +274,8 @@ class Simulation:
 
                 #Store each iteration in a separate group of datasets
                 datagroup = file.create_group(f"iter_{i}")
-                datagroup.attrs['canvas_size'] = self.canvas.size 
+                datagroup.attrs['canvas_size'] = self.canvas.size
+                datagroup.attrs['delta_t'] = delta_t
                 datagroup.create_dataset(f"iter_{i}_pos", data=self.pos)
                 datagroup.create_dataset(f"iter_{i}_veloc", data=self.veloc)
                 datagroup.create_dataset(f"iter_{i}_kin_energy", data=kin_energies)
@@ -278,30 +285,41 @@ class Simulation:
 ##### Main function to be called at start
 
 if __name__ == "__main__":
+    print("Script running...")
+    print(__name__)
     def print_usage():
         print("Usage:\n", file=sys.stderr)
         print("Check out usage in README, you gave the wrong number of arguments", file=sys.stderr)
 
-    #required_args = 0
-    #if len(sys.argv) != required_args:
-    #    print_usage()
+    required_args = 0
+    if len(sys.argv) != required_args:
+        print_usage()
+    
+    global WORKDIR_PATH 
+    WORKDIR_PATH = os.path.dirname(os.path.realpath(__file__))
+    global DATA_PATH 
+    WORKDIR_PATH = WORKDIR_PATH + "data/" 
 
-    # Hardcoded inputs (Maybe replace with argv arguments)
-    N_DIM = 3 # Number of dimensions
-    N_ATOMS = 2 # Number of particles
-    TEMPERATURE = 100 # Kelvin
-    ATOM_MASS = 6.6335e-26 # Mass of atoms (kg); Argon = 39.948 u
-    POT_ARGS = {'sigma': 3.405e-10, 'epsilon': sp_const.k*119.8} # sigma, epsilon for Argon in SI units (see slides Lec. 1)
+        # Hardcoded inputs (Maybe replace with argv arguments)
+    N_DIM = sys.argv[0] # Number of dimensions
+    N_ATOMS = sys.argv[1] # Number of particles
+    TEMPERATURE = sys.argv[2] # Kelvin
+    ATOM_MASS = sys.argv[3] # Mass of atoms (kg); Argon = 39.948 u
+    POT_ARGS = {'sigma': sys.argv[4], 'epsilon': sys.argv[5]} # sigma, epsilon for Argon in SI units (see slides Lec. 1)
     
     # Dimensionless constants
 
-    MAX_LENGTH = 8
+    MAX_LENGTH = sys.argv[6]
     CANVAS_SIZE = np.array([MAX_LENGTH, MAX_LENGTH]) # Canvas size (must be ndarray!)
-    END_OF_TIME = 2 # Maximum time
+    END_OF_TIME = sys.argv[7] # Maximum time
 
-    DELTA_T = 0.01 # Timestep
+    DELTA_T = sys.argv[8] # Timestep
     N_ITERATIONS = int(END_OF_TIME / DELTA_T)
     
+    INIT_MODE = sys.argv[9]
+    
+    DATA_FILENAME = sys.argv[10]
+    
     #Main simulation procedure
-    sim = Simulation(n_atoms=N_ATOMS, atom_mass=ATOM_MASS, n_dim=N_DIM, canvas_size=CANVAS_SIZE, pot_args=POT_ARGS)
+    sim = Simulation(n_atoms=N_ATOMS, atom_mass=ATOM_MASS, n_dim=N_DIM, canvas_size=CANVAS_SIZE, pot_args=POT_ARGS, init_mode=INIT_MODE, data_path=DATA_PATH, data_filename=DATA_FILENAME)
     sim.__simulate__(n_iterations=N_ITERATIONS, delta_t=DELTA_T)

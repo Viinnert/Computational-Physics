@@ -167,7 +167,7 @@ class Simulation:
         print("Initial positions", self.pos)
         return self.pos, self.veloc
 
-    def evolute(self, force_array, delta_t):
+    def evolute(self, delta_t):
         """
         Evolutes the particles position and velocity arrays
         via Newtonian EOM with Lennard-Jones Potential and returns updated
@@ -184,17 +184,27 @@ class Simulation:
         - n_pos::ndarray = Array of updated positions
         - n_veloc::ndarray = Array of updated velocities
         """
-
-        n_pos = self.pos + (self.veloc * delta_t) 
-        n_veloc = self.veloc - (force_array * delta_t)
         
-        #Apply boundary conditions to particles out of the simulated box
+        # Calculate current forces
+        c_force_array = self.forces()
+        print("Force", c_force_array)
+        
+        # Calculate and update new positions
+        n_pos = self.pos + delta_t * self.veloc + (delta_t**2) * c_force_array
         for d in range(self.canvas.n_dim):
             mask = np.logical_or(n_pos[:, d] > self.canvas.size[d],  n_pos[:, d] < 0)
             (n_pos[:, d])[mask] = np.mod((n_pos[:, d])[mask], self.canvas.size[d])
-            (n_veloc[:, d])[mask] = (n_veloc[:, d])[mask]  #No loss of energy with periodic BCs + same direction
+        self.pos = n_pos
         
-        return n_pos, n_veloc
+        # Calculate new forces
+        n_force_array = self.forces()
+        
+        # Calculate and update new velocities
+        n_veloc = self.veloc + delta_t * (c_force_array + n_force_array)
+        for d in range(self.canvas.n_dim):
+            mask = np.logical_or(n_pos[:, d] > self.canvas.size[d],  n_pos[:, d] < 0)
+            (n_veloc[:, d])[mask] = (n_veloc[:, d])[mask]  #No loss of energy with periodic BCs + same direction
+        self.veloc = n_veloc
 
     def distances(self, return_differences=True):
         """
@@ -313,18 +323,14 @@ class Simulation:
 
         with hdf.File(self.data_path + self.data_filename, "w") as file:
             for i in range(1, n_iterations+1):
-
-                c_force_array = self.forces()
-                print("Force", c_force_array)
-                n_pos, n_veloc = self.evolute(c_force_array, delta_t)
+                # Evolute 1 step
+                self.evolute(delta_t)
                 
-                #Retrieve current kinetic and potential energies
+                # Retrieve current kinetic and potential energies
                 kin_energies, pot_energies = self.energies()
-                print("Veloc", np.sum(n_veloc, axis=0))
-                
-                self.pos, self.veloc = n_pos, n_veloc
+                print("Veloc", np.sum(self.veloc, axis=0))
 
-                #Store each iteration in a separate group of datasets
+                # Store each iteration in a separate group of datasets
                 datagroup = file.create_group(f"iter_{i}")
                 datagroup.attrs['canvas_size'] = self.canvas.size
                 datagroup.attrs['delta_t'] = delta_t
@@ -334,7 +340,7 @@ class Simulation:
                 datagroup.create_dataset(f"iter_{i}_pot_energy", data=pot_energies)
                 
 
-##### Main function to be called at start
+##### Main function tobe called at start
 
 if __name__ == "__main__":
     print("Script running...")
@@ -352,7 +358,7 @@ if __name__ == "__main__":
     global DATA_PATH 
     WORKDIR_PATH = WORKDIR_PATH + "data/" 
 
-        # Hardcoded inputs (Maybe replace with argv arguments)
+    # Hardcoded inputs (Maybe replace with argv arguments)
     N_DIM = sys.argv[0] # Number of dimensions
     N_ATOMS = sys.argv[1] # Number of particles
     TEMPERATURE = sys.argv[2] # Kelvin

@@ -29,7 +29,7 @@ if __name__ == "__main__":
     
     # Hardcoded inputs (Maybe replace with argv arguments)
     N_DIM = 2 # Number of dimensions
-    N_ATOMS = 4 # Number of particles
+    N_ATOMS = 2 # Number of particles
     TEMPERATURE = 100 # Kelvin
     ATOM_MASS = 6.6335e-26 # Mass of atoms (kg); Argon = 39.948 u
     POT_ARGS = {'sigma': 3.405e-10, 'epsilon': sp_const.k*119.8} # sigma, epsilon for Argon in SI units (see slides Lec. 1)

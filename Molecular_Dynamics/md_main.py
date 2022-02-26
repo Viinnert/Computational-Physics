@@ -28,6 +28,7 @@ import scipy.constants as sp_const
 import scipy.spatial.distance as sp_dist
 import scipy.optimize as sp_optim
 from itertools import combinations
+from tqdm import tqdm
 
 ###### Main program:
 
@@ -187,8 +188,7 @@ class Simulation:
         
         # Calculate current forces
         c_force_array = self.forces()
-        print("Force", c_force_array)
-        
+
         # Calculate and update new positions
         n_pos = self.pos + delta_t * self.veloc + (delta_t**2) * c_force_array
         for d in range(self.canvas.n_dim):
@@ -200,7 +200,7 @@ class Simulation:
         n_force_array = self.forces()
         
         # Calculate and update new velocities
-        n_veloc = self.veloc + delta_t * (c_force_array + n_force_array)
+        n_veloc = self.veloc + delta_t * (n_force_array + c_force_array)
         for d in range(self.canvas.n_dim):
             mask = np.logical_or(n_pos[:, d] > self.canvas.size[d],  n_pos[:, d] < 0)
             (n_veloc[:, d])[mask] = (n_veloc[:, d])[mask]  #No loss of energy with periodic BCs + same direction
@@ -258,16 +258,20 @@ class Simulation:
             - kin_energy::ndarray = Kinetic energy of every particle
             - pot_energy::ndarray = Potential energy of every particle
             """
-            self.kin_energy = 1/2*np.sum(self.veloc*self.veloc, axis=1)
+            kin_energy = 1/2*np.sum(self.veloc*self.veloc, axis=1)
             
+            if np.any(kin_energy < 0.0):
+                print("1")
             #Obtain current interparticle distances
             distance_arr = self.distances(return_differences=False) #minimal (efficient) list of all pairwise distances
             
             #Get distances into symmetric array form with element i,j -> distance r_ij (less efficient) 
             # and sum potential  energy contributions for each particle
-            self.pot_energy = np.sum(upper_triang_mat(list(lennard_jones(distance_arr, self.pot_args)), self.n_atoms, symmetric=True), axis=1)
+            pot_energy = np.sum(upper_triang_mat(list(lennard_jones(distance_arr, self.pot_args)), self.n_atoms, symmetric=True), axis=1)
             
-            return self.kin_energy, self.pot_energy
+            if np.any(kin_energy < 0.0):
+                print("2")
+            return kin_energy, pot_energy
         
     def forces(self):
         """
@@ -322,14 +326,14 @@ class Simulation:
         """
 
         with hdf.File(self.data_path + self.data_filename, "w") as file:
-            for i in range(1, n_iterations+1):
+            for i in tqdm(range(1, n_iterations+1)):
                 # Evolute 1 step
                 self.evolute(delta_t)
                 
                 # Retrieve current kinetic and potential energies
                 kin_energies, pot_energies = self.energies()
-                print("Veloc", np.sum(self.veloc, axis=0))
-
+                
+                
                 # Store each iteration in a separate group of datasets
                 datagroup = file.create_group(f"iter_{i}")
                 datagroup.attrs['canvas_size'] = self.canvas.size

@@ -45,7 +45,7 @@ if __name__ == "__main__":
     N_ITERATIONS = int(END_OF_TIME / DELTA_T)
     
     INIT_MODE = "random"
-    #INIT_MODE = lambda: simple_init(CANVAS_SIZE)
+    INIT_MODE = lambda: simple_init(CANVAS_SIZE)
     
     DATA_PATH = WORKDIR_PATH + "data/" 
     DATA_FILENAME = "trajectories.hdf5"

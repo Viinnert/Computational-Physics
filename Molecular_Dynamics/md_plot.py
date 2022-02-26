@@ -59,8 +59,8 @@ def plot_energy(data_file):
     
     time = np.arange(0, n_iterations-1)*delta_t
     
-    pot_energy = np.array([np.sum(data_file[f"iter_{i}"][f"iter_{i}_kin_energy"]) for i in range(1, n_iterations)])
-    kin_energy = np.array([np.sum(data_file[f"iter_{i}"][f"iter_{i}_pot_energy"]) for i in range(1, n_iterations)])
+    pot_energy = np.array([np.sum(np.array(data_file[f"iter_{i}"][f"iter_{i}_pot_energy"])) for i in range(1, n_iterations)])
+    kin_energy = np.array([np.sum(np.array(data_file[f"iter_{i}"][f"iter_{i}_kin_energy"])) for i in range(1, n_iterations)])
     tot_energy = pot_energy + kin_energy
     
     fig = plt.figure(figsize=(10,7.5))

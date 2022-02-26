@@ -177,12 +177,12 @@ class Simulation:
         - canvas::Canvas = Space in which evolution should take place
         - c_pos::ndarray = Array of positions at current iteration
         - c_veloc::ndarray = Array of velocities at current iteration
-        - force_array::ndarray = Summed force on each particle (n_atoms x n_dim)
+        - c_force_array::ndarray = Summed force on each particle (n_atoms x n_dim)
         - atom_mass::float = Mass of each particle/atom (all assumed equal)
         - delta_t::float = Timestep per iteration in simulation
-        Return
-        - n_pos::ndarray = Array of updated positions
-        - n_veloc::ndarray = Array of updated velocities
+        
+        Updates self.pos and self.veloc
+        
         """
         
         # Calculate current forces

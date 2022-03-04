@@ -170,6 +170,26 @@ class Simulation:
         self.veloc = np.random.randn(self.n_atoms, self.canvas.n_dim) * (self.canvas.size/6) 
         print("Initial positions", self.pos)
         return self.pos, self.veloc
+    
+        def initialize_atoms_in_fcc(self):
+            """
+        Initializes position and velocity of 4 * n_unit_cells atoms on canvas in n_unit_cells number of unit cells in FCC config.
+        at temperature self.temp and self.density 
+        
+        Args
+        - canvas::Canvas = Space in which evolution should take place
+        Return
+        - pos::ndarray = Array of initial molecule positions
+        - veloc::ndarray = Array of initial molecule velocities
+        """
+        self.n_atoms = 4*n_unit_cells
+        
+        #self.temp and self.density 
+        
+        self.pos = (np.random.randn(self.n_atoms, self.canvas.n_dim) * self.canvas.size) % np.gcd(*self.canvas.size)
+        self.veloc = np.random.randn(self.n_atoms, self.canvas.n_dim) * (self.canvas.size/6) 
+        print("Initial positions", self.pos)
+        return self.pos, self.veloc
 
     def evolute(self, delta_t):
         """

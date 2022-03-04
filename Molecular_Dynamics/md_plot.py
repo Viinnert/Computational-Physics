@@ -40,6 +40,35 @@ params = {
 mpl.rcParams.update(params)
 mpl.rc("font", **{"family": "sans-serif", "sans-serif": ["Times"]})
 
+def plot_forces(data_file):
+    """
+    Plots the forces on particles stored in a given data file.
+    
+    Args
+    - data_file::h5py._hl.files.File = File object from which to extract the energy data
+                                       Groups label iterations 'iter_{index}'
+                                       
+
+    Return
+    - --
+    """
+    n_iterations = len(list(data_file.keys()))
+    
+    delta_t = data_file[f"iter_1"].attrs["delta_t"]
+    
+    time = np.arange(0, n_iterations-1)*delta_t
+    
+    forces_array = np.array([np.sum((np.array(data_file[f"iter_{i}"][f"iter_{i}_force"]))**2, axis=1) for i in range(1, n_iterations)])
+
+    
+    fig = plt.figure(figsize=(10,7.5))
+    
+    plt.plot(time, forces_array, color="red", label="Force")
+    plt.xlabel(r"Time $\sqrt{\frac{\sigma^2  m}{epsilon}}$")
+    plt.ylabel(r"Force")
+    plt.legend()
+    plt.show()
+
 
 def plot_energy(data_file):
     """
@@ -154,7 +183,7 @@ def animate_trajectories3D(data_file):
         plt.pause(0.2)
         
         #Remove current position pointer and add trail to plot
-        past_point_scatter = plt.scatter(current_pos[:,0], current_pos[:,1], c=cmap, marker=".")
+        past_point_scatter = plt.scatter(current_pos[:,0], current_pos[:,1], current_pos[:,2], c=cmap, marker=".")
         current_point_scatter.remove()
     
     plt.show()

@@ -59,6 +59,8 @@ if __name__ == "__main__":
         
         plot_energy(data_file)
         
+        plot_forces(data_file)
+        
         animate_trajectories2D(data_file)
         #plot_trajectories2D(data_file)
         

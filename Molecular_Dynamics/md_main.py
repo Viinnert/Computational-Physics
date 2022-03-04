@@ -151,6 +151,9 @@ class Simulation:
         else:
             raise ValueError("Unknown initialization mode; Give ")
         
+        #Initialize forces:
+        self.force = np.zeros(self.pos.shape, dtype=np.float64)
+        
         print("Succesfully initialized simulation!")
 
     def initialize_atoms_random(self):
@@ -187,10 +190,12 @@ class Simulation:
         """
         
         # Calculate current forces
-        c_force_array = self.forces()
+        c_force_array = self.force #self.forces()
 
         # Calculate and update new positions
-        n_pos = self.pos + delta_t * self.veloc + (delta_t**2) * c_force_array
+        n_pos = self.pos + delta_t * self.veloc + (delta_t**2) * c_force_array / 2
+        
+        #Apply boundary conditions:
         for d in range(self.canvas.n_dim):
             mask = np.logical_or(n_pos[:, d] > self.canvas.size[d],  n_pos[:, d] < 0)
             (n_pos[:, d])[mask] = np.mod((n_pos[:, d])[mask], self.canvas.size[d])
@@ -198,9 +203,12 @@ class Simulation:
         
         # Calculate new forces
         n_force_array = self.forces()
+        self.force = n_force_array
         
         # Calculate and update new velocities
-        n_veloc = self.veloc + delta_t * (n_force_array + c_force_array)
+        n_veloc = self.veloc + delta_t * (n_force_array + c_force_array) / 2 
+        
+        #Apply boundary conditions:
         for d in range(self.canvas.n_dim):
             mask = np.logical_or(n_pos[:, d] > self.canvas.size[d],  n_pos[:, d] < 0)
             (n_veloc[:, d])[mask] = (n_veloc[:, d])[mask]  #No loss of energy with periodic BCs + same direction
@@ -260,8 +268,7 @@ class Simulation:
             """
             kin_energy = 1/2*np.sum(self.veloc*self.veloc, axis=1)
             
-            if np.any(kin_energy < 0.0):
-                print("1")
+
             #Obtain current interparticle distances
             distance_arr = self.distances(return_differences=False) #minimal (efficient) list of all pairwise distances
             
@@ -269,8 +276,6 @@ class Simulation:
             # and sum potential  energy contributions for each particle
             pot_energy = np.sum(upper_triang_mat(list(lennard_jones(distance_arr, self.pot_args)), self.n_atoms, symmetric=True), axis=1)
             
-            if np.any(kin_energy < 0.0):
-                print("2")
             return kin_energy, pot_energy
         
     def forces(self):
@@ -304,9 +309,9 @@ class Simulation:
         lj_gradient_dist_divided_by_r = lj_gradient_dist/distance_mat
         
         #Apply the chain rule of the gradient x,y,z to distance r
-        lj_gradient_pos = tuple([np.sum(np.multiply(lj_gradient_dist_divided_by_r, upper_triang_mat(list(-differences_per_dim[d]), self.n_atoms,symmetric=False)), axis=1) for d in range(self.n_dim)])
-        #Note: minus sign before distance matrix required to match index i in F_i + sum_j grad_ij to axis=0 of gradient matrix with elements ij. (i.e. positive difference below diagonal)
-        
+        lj_gradient_pos = tuple([np.sum(np.multiply(lj_gradient_dist_divided_by_r, upper_triang_mat(list(differences_per_dim[d]), self.n_atoms,symmetric=False)), axis=1) for d in range(self.n_dim)])
+  
+        print(np.diagonal(np.multiply(lj_gradient_dist_divided_by_r, upper_triang_mat(list(-differences_per_dim[1]), self.n_atoms,symmetric=False))))
         #Express the force (in particle-wise vectorform) and mind the extra sign flip from force formula.
         force_array = -np.column_stack(lj_gradient_pos)
         
@@ -342,6 +347,7 @@ class Simulation:
                 datagroup.create_dataset(f"iter_{i}_veloc", data=self.veloc)
                 datagroup.create_dataset(f"iter_{i}_kin_energy", data=kin_energies)
                 datagroup.create_dataset(f"iter_{i}_pot_energy", data=pot_energies)
+                datagroup.create_dataset(f"iter_{i}_force", data=self.force)
                 
 
 ##### Main function tobe called at start

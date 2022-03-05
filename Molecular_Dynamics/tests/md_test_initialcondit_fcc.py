@@ -28,28 +28,27 @@ if __name__ == "__main__":
     #    print_usage()
     
     # Hardcoded inputs (Maybe replace with argv arguments)
-    N_DIM = 2 # Number of dimensions
-    N_ATOMS = 2 # Number of particles
+    N_DIM = 3 # Number of dimensions
+    N_UNIT_CELLS = (1,1,1) # Number of unit cells per dimension
     TEMPERATURE = 100 # Kelvin
-    DENSITY = 0.1 # Dimensionless = scaled by m/sigma**n_dim
+    DENSITY = 1 # Dimensionless = scaled by m/sigma**n_dim
     ATOM_MASS = 6.6335e-26 # Mass of atoms (kg); Argon = 39.948 u
     POT_ARGS = {'sigma': 3.405e-10, 'epsilon': 119.8} # sigma, epsilon for Argon in units of m and k_B respectively.
 
     # Dimensionless constants
-    CANVAS_ASPECT_RATIO = (1,1) # Canvas size (must be ndarray!)
-    END_OF_TIME = 10 # Maximum time
+    CANVAS_ASPECT_RATIO = (1,1,1) # Canvas size (must be ndarray!)
+    END_OF_TIME = 0.1 # Maximum time
 
-    DELTA_T = 0.01 # Timestep
+    DELTA_T = 0.001 # Timestep
     N_ITERATIONS = int(END_OF_TIME / DELTA_T)
     
-    INIT_MODE = "random"
-    INIT_MODE = lambda: simple_init((N_ATOMS / DENSITY, N_ATOMS / DENSITY))
-    
+    INIT_MODE = "fcc"
+
     DATA_PATH = WORKDIR_PATH + "data/" 
-    DATA_FILENAME = "trajectories.hdf5"
+    DATA_FILENAME = "trajectories_fcc.hdf5"
     
     #Main simulation procedure
-    sim = Simulation(n_atoms_or_unit_cells=N_ATOMS, atom_mass=ATOM_MASS,  density=DENSITY, temperature=TEMPERATURE ,n_dim=N_DIM, canvas_aspect_ratio=CANVAS_ASPECT_RATIO, pot_args=POT_ARGS, init_mode=INIT_MODE, data_path=DATA_PATH, data_filename=DATA_FILENAME)
+    sim = Simulation(n_atoms_or_unit_cells=N_UNIT_CELLS, atom_mass=ATOM_MASS,  density=DENSITY, temperature=TEMPERATURE ,n_dim=N_DIM, canvas_aspect_ratio=CANVAS_ASPECT_RATIO, pot_args=POT_ARGS, init_mode=INIT_MODE, data_path=DATA_PATH, data_filename=DATA_FILENAME)
     sim.__simulate__(n_iterations=N_ITERATIONS, delta_t=DELTA_T)
     
     #Plot:
@@ -59,6 +58,6 @@ if __name__ == "__main__":
         
         plot_forces(data_file)
         
-        animate_trajectories2D(data_file)
+        animate_trajectories3D(data_file)
         #plot_trajectories2D(data_file)
         

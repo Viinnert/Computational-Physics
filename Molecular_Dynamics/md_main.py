@@ -27,7 +27,7 @@ import scipy as sp
 import scipy.constants as sp_const
 import scipy.spatial.distance as sp_dist
 import scipy.optimize as sp_optim
-from itertools import combinations
+from itertools import combinations, product
 from tqdm import tqdm
 
 ###### Main program:
@@ -37,12 +37,13 @@ class Canvas:
     Defines a space in which simulation is taking place
     Parameters
     - dim::int = Number of dimensions of canvas (only 2D or 3D supported)
-    - size::ndarray = Size of canvas in each dimension
+    - scanvas_aspect_ratio::tuple = Aspect ratio of canvas in each dimension
     """
-    def __init__(self, n_dim, size):
+    def __init__(self, n_dim, n_atoms, density, canvas_aspect_ratio):
         self.type = str(n_dim) + "D-canvas"
         self.n_dim = n_dim
-        self.size = size
+        self.length = (n_atoms / density)
+        self.size = np.asarray(canvas_aspect_ratio) * self.length / np.prod(canvas_aspect_ratio)
         print("Created a {}D-canvas".format(self.n_dim))
 
 
@@ -115,41 +116,46 @@ class Simulation:
     """
     Defines a molecular simulation with appropiate conditions
     Parameters
-    - n_atoms::int = Number of atoms to be simulated
+    - n_atoms_or_unit_cells::int or tuple = Number of atoms to be simulated or tuple of number of unit cells per dimension
     - atom_mass::int = 
     - n_dim::int = Number of dimensions to simulate in
     - canvas_size::ndarray = Array of canvas side length in each dimension
     - time::ndarray = Ordered array of all time values to simulate over
     - delta_t::float = Timestep per iteration in simulation; Should equal used timestep in time array
     - pot_args::dict = Dictionary with arguments (e.g. constants) required for calculating the potential 
+                    e.g. sigma, epsilon for Argon in units of m and k_B respectively.
     - init_mode::string or callable = Specify method to initialize positions and velocities
     """
-    def __init__(self, n_atoms, atom_mass, n_dim, canvas_size, pot_args, init_mode, data_path, data_filename):
-        self.n_atoms = n_atoms
+    def __init__(self, n_atoms_or_unit_cells, atom_mass, density, temperature,n_dim, canvas_aspect_ratio, pot_args, init_mode, data_path, data_filename):
+
+        self.density = density
+        self.temp = temperature
         self.atom_mass = atom_mass
         self.n_dim = n_dim
-        self.canvas_size = canvas_size
+        
         self.pot_args = pot_args
         self.data_path = data_path
         self.data_filename = data_filename
         
-        #Check for correct (dimensional) format of size
-        if type(canvas_size) != np.ndarray:
-            raise ValueError('Provide size of canvas as numpy array.')
-    
-        elif canvas_size.shape != (n_dim,):
-            print(canvas_size.shape)
-            raise ValueError('Check number of dimensions of the canvas size array.')
-
-        self.canvas = Canvas(n_dim, canvas_size)
         
         #Initialize and save state of simulation:
-        if init_mode == "random":
+        if init_mode == 'random':
+            self.n_atoms = n_atoms_or_unit_cells #n_atoms
+            self.canvas = Canvas(self.n_dim, self.n_atoms, self.density, canvas_aspect_ratio)
             self.pos, self.veloc = self.initialize_atoms_random()
+        elif init_mode == 'fcc':
+            if self.n_dim != 3 or len(n_atoms_or_unit_cells) != 3:
+                raise ValueError("Initalizing in FCC lattice only possible in 3 dimensions")
+            
+            self.n_atoms = np.prod(n_atoms_or_unit_cells)*4 #4 atoms per unit cell
+            self.canvas = Canvas(self.n_dim, self.n_atoms, self.density, canvas_aspect_ratio)
+            self.pos, self.veloc = self.initialize_atoms_in_fcc(n_unit_cells = n_atoms_or_unit_cells)
         elif callable(init_mode):
+            self.n_atoms = n_atoms_or_unit_cells
+            self.canvas = Canvas(self.n_dim, self.n_atoms, self.density, canvas_aspect_ratio)
             self.pos, self.veloc = init_mode()
         else:
-            raise ValueError("Unknown initialization mode; Give ")
+            raise ValueError("Unknown initalization mode")
         
         #Initialize forces:
         self.force = np.zeros(self.pos.shape, dtype=np.float64)
@@ -171,8 +177,8 @@ class Simulation:
         print("Initial positions", self.pos)
         return self.pos, self.veloc
     
-        def initialize_atoms_in_fcc(self):
-            """
+    def initialize_atoms_in_fcc(self, n_unit_cells):
+        """
         Initializes position and velocity of 4 * n_unit_cells atoms on canvas in n_unit_cells number of unit cells in FCC config.
         at temperature self.temp and self.density 
         
@@ -182,13 +188,28 @@ class Simulation:
         - pos::ndarray = Array of initial molecule positions
         - veloc::ndarray = Array of initial molecule velocities
         """
-        self.n_atoms = 4*n_unit_cells
         
-        #self.temp and self.density 
+        unit_cell_length = self.canvas.size / np.asarray(n_unit_cells[0])
         
-        self.pos = (np.random.randn(self.n_atoms, self.canvas.n_dim) * self.canvas.size) % np.gcd(*self.canvas.size)
-        self.veloc = np.random.randn(self.n_atoms, self.canvas.n_dim) * (self.canvas.size/6) 
+        #Prepare a single unit cell in the basis in which (0,0,0) is the midpoint of a unit cell.
+        unit_cell = np.array([[1/2* unit_cell_length[0] , 1/2*unit_cell_length[1], 0],
+                             [1* unit_cell_length[0], 0, 1/2*unit_cell_length[2]],
+                             [0, 1* unit_cell_length[1], 1/2*unit_cell_length[2]],
+                             [0, 0, 1* unit_cell_length[2]]])
+        
+        #Copy the unit cell to tile the canvas and add the correct unit cell offset to each of the basis vectors.
+        #also apply Boundary conditions
+        unit_cell_offsets = np.array(list(product(np.arange(0,n_unit_cells[0]),  np.arange(0,n_unit_cells[1]), np.arange(0,n_unit_cells[2])))) * unit_cell_length
+        complete_lattice = np.tile(unit_cell, (np.prod(n_unit_cells), 1)) + np.repeat(unit_cell_offsets, unit_cell.shape[0], axis=0)
+        self.pos = np.mod(complete_lattice, self.canvas.size)
+        
+        #Veloc. standard deviation = kinetic energy average * velocity unit scaling
+        veloc_std_dev = np.sqrt(2* self.temp / self.pot_args['epsilon'])
+        self.veloc = np.column_stack([np.random.normal(loc=0.0, scale=veloc_std_dev, size=self.n_atoms) for d in range(self.canvas.n_dim)])
+        
+        
         print("Initial positions", self.pos)
+        print("Initial velocity", self.veloc)
         return self.pos, self.veloc
 
     def evolute(self, delta_t):
@@ -213,7 +234,7 @@ class Simulation:
         c_force_array = self.force #self.forces()
 
         # Calculate and update new positions
-        n_pos = self.pos + delta_t * self.veloc + (delta_t**2) * c_force_array / 2
+        n_pos = self.pos + delta_t * self.veloc + (delta_t**2 ) * c_force_array / 2
         
         #Apply boundary conditions:
         for d in range(self.canvas.n_dim):
@@ -226,8 +247,8 @@ class Simulation:
         self.force = n_force_array
         
         # Calculate and update new velocities
-        n_veloc = self.veloc + delta_t * (n_force_array + c_force_array) / 2 
-        
+        n_veloc = self.veloc + delta_t * (n_force_array + c_force_array) / 2
+         
         #Apply boundary conditions:
         for d in range(self.canvas.n_dim):
             mask = np.logical_or(n_pos[:, d] > self.canvas.size[d],  n_pos[:, d] < 0)
@@ -294,7 +315,8 @@ class Simulation:
             
             #Get distances into symmetric array form with element i,j -> distance r_ij (less efficient) 
             # and sum potential  energy contributions for each particle
-            pot_energy = np.sum(upper_triang_mat(list(lennard_jones(distance_arr, self.pot_args)), self.n_atoms, symmetric=True), axis=1)
+            # NOTE: pot energy of single particle in 2 particle interaction = half of total pot interaction energy.
+            pot_energy = np.sum(upper_triang_mat(list(lennard_jones(distance_arr, self.pot_args)), self.n_atoms, symmetric=True), axis=1) / 2
             
             return kin_energy, pot_energy
         
@@ -331,7 +353,6 @@ class Simulation:
         #Apply the chain rule of the gradient x,y,z to distance r
         lj_gradient_pos = tuple([np.sum(np.multiply(lj_gradient_dist_divided_by_r, upper_triang_mat(list(differences_per_dim[d]), self.n_atoms,symmetric=False)), axis=1) for d in range(self.n_dim)])
   
-        print(np.diagonal(np.multiply(lj_gradient_dist_divided_by_r, upper_triang_mat(list(-differences_per_dim[1]), self.n_atoms,symmetric=False))))
         #Express the force (in particle-wise vectorform) and mind the extra sign flip from force formula.
         force_array = -np.column_stack(lj_gradient_pos)
         
@@ -392,8 +413,10 @@ if __name__ == "__main__":
     N_DIM = sys.argv[0] # Number of dimensions
     N_ATOMS = sys.argv[1] # Number of particles
     TEMPERATURE = sys.argv[2] # Kelvin
-    ATOM_MASS = sys.argv[3] # Mass of atoms (kg); Argon = 39.948 u
-    POT_ARGS = {'sigma': sys.argv[4], 'epsilon': sys.argv[5]} # sigma, epsilon for Argon in SI units (see slides Lec. 1)
+    DENSITY = sys.argv[3] # Dimensionless = scaled by m/sigma**n_dim
+    ATOM_MASS = sys.argv[4] # Mass of atoms (kg); Argon = 39.948 u
+    POT_ARGS = {'sigma': sys.argv[5], 'epsilon': sys.argv[6]} # sigma, epsilon for Argon in SI units (see slides Lec. 1)
+    
     
     # Dimensionless constants
 
@@ -409,5 +432,5 @@ if __name__ == "__main__":
     DATA_FILENAME = sys.argv[10]
     
     #Main simulation procedure
-    sim = Simulation(n_atoms=N_ATOMS, atom_mass=ATOM_MASS, n_dim=N_DIM, canvas_size=CANVAS_SIZE, pot_args=POT_ARGS, init_mode=INIT_MODE, data_path=DATA_PATH, data_filename=DATA_FILENAME)
+    sim = Simulation(n_atoms=N_ATOMS, atom_mass=ATOM_MASS,  density=DENSITY, temperature=TEMPERATURE ,n_dim=N_DIM, canvas_size=CANVAS_SIZE, pot_args=POT_ARGS, init_mode=INIT_MODE, data_path=DATA_PATH, data_filename=DATA_FILENAME)
     sim.__simulate__(n_iterations=N_ITERATIONS, delta_t=DELTA_T)

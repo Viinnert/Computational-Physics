@@ -60,13 +60,13 @@ def plot_forces(data_file):
     
     forces_array = np.array([np.sum((np.array(data_file[f"iter_{i}"][f"iter_{i}_force"]))**2, axis=1) for i in range(1, n_iterations)])
 
+    print(forces_array.shape)
     
     fig = plt.figure(figsize=(10,7.5))
     
-    plt.plot(time, forces_array, color="red", label="Force")
+    plt.plot(time, forces_array, label="Force")
     plt.xlabel(r"Time $\sqrt{\frac{\sigma^2  m}{epsilon}}$")
     plt.ylabel(r"Force")
-    plt.legend()
     plt.show()
 
 
@@ -183,7 +183,7 @@ def animate_trajectories3D(data_file):
         plt.pause(0.2)
         
         #Remove current position pointer and add trail to plot
-        past_point_scatter = plt.scatter(current_pos[:,0], current_pos[:,1], current_pos[:,2], c=cmap, marker=".")
+        past_point_scatter = ax.scatter(current_pos[:,0], current_pos[:,1], current_pos[:,2], c=cmap, marker=".")
         current_point_scatter.remove()
     
     plt.show()

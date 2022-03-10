@@ -29,7 +29,7 @@ if __name__ == "__main__":
     
     # Hardcoded inputs (Maybe replace with argv arguments)
     N_DIM = 3 # Number of dimensions
-    N_UNIT_CELLS = (1,1,1) # Number of unit cells per dimension
+    N_UNIT_CELLS = (2,2,2) # Number of unit cells per dimension
     TEMPERATURE = 100 # Kelvin
     DENSITY = 1 # Dimensionless = scaled by m/sigma**n_dim
     ATOM_MASS = 6.6335e-26 # Mass of atoms (kg); Argon = 39.948 u
@@ -37,9 +37,9 @@ if __name__ == "__main__":
 
     # Dimensionless constants
     CANVAS_ASPECT_RATIO = (1,1,1) # Canvas size (must be ndarray!)
-    END_OF_TIME = 0.1 # Maximum time
+    END_OF_TIME = 5 # Maximum time
 
-    DELTA_T = 0.001 # Timestep
+    DELTA_T = 0.1 # Timestep
     N_ITERATIONS = int(END_OF_TIME / DELTA_T)
     
     INIT_MODE = "fcc"

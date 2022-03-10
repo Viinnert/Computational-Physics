@@ -44,10 +44,8 @@ class Canvas:
         self.n_dim = n_dim
         self.length = (n_atoms / density)
         self.size = np.asarray(canvas_aspect_ratio) * self.length / np.prod(canvas_aspect_ratio)
-        print("Created a {}D-canvas".format(self.n_dim))
-
-
-
+        print(f"\nCreated a {self.n_dim}D-canvas with sizes {self.size}")
+        
 
 def lennard_jones(distance, pot_args):
     """
@@ -137,23 +135,28 @@ class Simulation:
         self.data_path = data_path
         self.data_filename = data_filename
         
-        
         #Initialize and save state of simulation:
         if init_mode == 'random':
+            self.init_mode = 'random'
             self.n_atoms = n_atoms_or_unit_cells #n_atoms
             self.canvas = Canvas(self.n_dim, self.n_atoms, self.density, canvas_aspect_ratio)
             self.pos, self.veloc = self.initialize_atoms_random()
+            
         elif init_mode == 'fcc':
+            self.init_mode = 'fcc'
             if self.n_dim != 3 or len(n_atoms_or_unit_cells) != 3:
                 raise ValueError("Initalizing in FCC lattice only possible in 3 dimensions")
             
             self.n_atoms = np.prod(n_atoms_or_unit_cells)*4 #4 atoms per unit cell
             self.canvas = Canvas(self.n_dim, self.n_atoms, self.density, canvas_aspect_ratio)
             self.pos, self.veloc = self.initialize_atoms_in_fcc(n_unit_cells = n_atoms_or_unit_cells)
+            
         elif callable(init_mode):
+            self.init_mode = 'callable'
             self.n_atoms = n_atoms_or_unit_cells
             self.canvas = Canvas(self.n_dim, self.n_atoms, self.density, canvas_aspect_ratio)
             self.pos, self.veloc = init_mode()
+            
         else:
             raise ValueError("Unknown initalization mode")
         
@@ -190,12 +193,18 @@ class Simulation:
         """
         
         unit_cell_length = self.canvas.size / np.asarray(n_unit_cells[0])
+        print(f"Unit cell length: {unit_cell_length}")
         
         #Prepare a single unit cell in the basis in which (0,0,0) is the midpoint of a unit cell.
-        unit_cell = np.array([[1/2* unit_cell_length[0] , 1/2*unit_cell_length[1], 0],
-                             [1* unit_cell_length[0], 0, 1/2*unit_cell_length[2]],
-                             [0, 1* unit_cell_length[1], 1/2*unit_cell_length[2]],
-                             [0, 0, 1* unit_cell_length[2]]])
+        #unit_cell = np.array([[1/2* unit_cell_length[0] , 1/2*unit_cell_length[1], 0],
+        #                     [1* unit_cell_length[0], 0, 1/2*unit_cell_length[2]],
+        #                     [0, 1* unit_cell_length[1], 1/2*unit_cell_length[2]],
+        #                     [0, 0, 1* unit_cell_length[2]]])
+        
+        unit_cell = np.array([[unit_cell_length[0]/2, unit_cell_length[1]/2, 0],
+                              [unit_cell_length[0]/2, 0, unit_cell_length[2]/2],
+                              [0, unit_cell_length[1]/2, unit_cell_length[2]/2],
+                              [0, 0, 0]])
         
         #Copy the unit cell to tile the canvas and add the correct unit cell offset to each of the basis vectors.
         #also apply Boundary conditions
@@ -205,7 +214,8 @@ class Simulation:
         
         #Veloc. standard deviation = kinetic energy average * velocity unit scaling
         veloc_std_dev = np.sqrt(2* self.temp / self.pot_args['epsilon'])
-        self.veloc = np.column_stack([np.random.normal(loc=0.0, scale=veloc_std_dev, size=self.n_atoms) for d in range(self.canvas.n_dim)])
+        #self.veloc = np.column_stack([np.random.normal(loc=0.0, scale=veloc_std_dev, size=self.n_atoms) for d in range(self.canvas.n_dim)])
+        self.veloc = np.random.normal(loc=0, scale=veloc_std_dev, size=(self.n_atoms,self.canvas.n_dim))
         
         
         print("Initial positions", self.pos)
@@ -309,7 +319,11 @@ class Simulation:
             """
             kin_energy = 1/2*np.sum(self.veloc*self.veloc, axis=1)
             
-
+            if self.init_mode == 'fcc':
+                kin_energy_target = (self.n_atoms - 1) * 3/2 * self.temp
+            else:
+                kin_energy_target = None
+                
             #Obtain current interparticle distances
             distance_arr = self.distances(return_differences=False) #minimal (efficient) list of all pairwise distances
             
@@ -318,7 +332,7 @@ class Simulation:
             # NOTE: pot energy of single particle in 2 particle interaction = half of total pot interaction energy.
             pot_energy = np.sum(upper_triang_mat(list(lennard_jones(distance_arr, self.pot_args)), self.n_atoms, symmetric=True), axis=1) / 2
             
-            return kin_energy, pot_energy
+            return kin_energy, pot_energy, kin_energy_target
         
     def forces(self):
         """
@@ -377,18 +391,23 @@ class Simulation:
                 self.evolute(delta_t)
                 
                 # Retrieve current kinetic and potential energies
-                kin_energies, pot_energies = self.energies()
-                
+                kin_energies, pot_energies, kin_energy_target = self.energies()
                 
                 # Store each iteration in a separate group of datasets
                 datagroup = file.create_group(f"iter_{i}")
                 datagroup.attrs['canvas_size'] = self.canvas.size
                 datagroup.attrs['delta_t'] = delta_t
+                datagroup.attrs['kin_energy_target'] = kin_energy_target
                 datagroup.create_dataset(f"iter_{i}_pos", data=self.pos)
                 datagroup.create_dataset(f"iter_{i}_veloc", data=self.veloc)
                 datagroup.create_dataset(f"iter_{i}_kin_energy", data=kin_energies)
                 datagroup.create_dataset(f"iter_{i}_pot_energy", data=pot_energies)
                 datagroup.create_dataset(f"iter_{i}_force", data=self.force)
+            
+            if self.init_mode == 'fcc':
+                lambda_ = (kin_energy_target/np.sum(kin_energies))**(1/2)
+                print(f"Lambda = {lambda_}")
+    
                 
 
 ##### Main function tobe called at start

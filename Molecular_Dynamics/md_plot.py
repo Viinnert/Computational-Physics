@@ -86,7 +86,6 @@ def plot_energy(data_file):
     delta_t = data_file[f"iter_1"].attrs["delta_t"]
     time = np.arange(0, n_iterations-1)*delta_t
     
-    kin_energy_target = data_file[f"iter_1"].attrs["kin_energy_target"]
     
     pot_energy = np.array([np.sum(np.array(data_file[f"iter_{i}"][f"iter_{i}_pot_energy"])) for i in range(1, n_iterations)])
     kin_energy = np.array([np.sum(np.array(data_file[f"iter_{i}"][f"iter_{i}_kin_energy"])) for i in range(1, n_iterations)])
@@ -97,7 +96,13 @@ def plot_energy(data_file):
     plt.plot(time, kin_energy, color="red", label="Kinetic Energy")
     plt.plot(time, pot_energy, color="blue", label="Potential Energy")
     plt.plot(time, tot_energy, color="black", label="Total Energy")
-    plt.hlines(kin_energy_target, xmin=0, xmax=time[-1], label='Kinetic energy target', linestyle='--')
+    
+    try:
+        kin_energy_target = data_file[f"iter_1"].attrs["kin_energy_target"]
+        plt.hlines(kin_energy_target, xmin=0, xmax=time[-1], label='Kinetic energy target', linestyle='--')
+    except:
+        pass
+    
     plt.xlabel(r"Time $\sqrt{\frac{\sigma^2  m}{epsilon}}$")
     plt.ylabel(r"Energy")
     plt.legend()
@@ -184,7 +189,7 @@ def animate_trajectories3D(data_file):
         plt.pause(0.2)
         
         #Remove current position pointer and add trail to plot
-        past_point_scatter = ax.scatter(current_pos[:,0], current_pos[:,1], current_pos[:,2], c=cmap, marker=".", s=54)
+        past_point_scatter = ax.scatter(current_pos[:,0], current_pos[:,1], current_pos[:,2], c=cmap, marker=".", s=6)
         current_point_scatter.remove()
     
     plt.show()

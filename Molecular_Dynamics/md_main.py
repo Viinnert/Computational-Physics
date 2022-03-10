@@ -215,7 +215,7 @@ class Simulation:
         #Veloc. standard deviation = kinetic energy average * velocity unit scaling
         veloc_std_dev = np.sqrt(2* self.temp / self.pot_args['epsilon'])
         #self.veloc = np.column_stack([np.random.normal(loc=0.0, scale=veloc_std_dev, size=self.n_atoms) for d in range(self.canvas.n_dim)])
-        self.veloc = np.random.normal(loc=0, scale=veloc_std_dev, size=(self.n_atoms,self.canvas.n_dim)) 
+        self.veloc = np.random.normal(loc=0, scale=veloc_std_dev, size=(self.n_atoms,self.canvas.n_dim)) * 0
         
         
         print("Initial positions", self.pos)
@@ -397,10 +397,12 @@ class Simulation:
                 datagroup = file.create_group(f"iter_{i}")
                 datagroup.attrs['canvas_size'] = self.canvas.size
                 datagroup.attrs['delta_t'] = delta_t
+                
                 try:
                     datagroup.attrs['kin_energy_target'] = kin_energy_target
                 except:
                     pass
+                
                 datagroup.create_dataset(f"iter_{i}_pos", data=self.pos)
                 datagroup.create_dataset(f"iter_{i}_veloc", data=self.veloc)
                 datagroup.create_dataset(f"iter_{i}_kin_energy", data=kin_energies)
@@ -409,7 +411,7 @@ class Simulation:
             
             if self.init_mode == 'fcc':
                 lambda_ = (kin_energy_target/np.sum(kin_energies))**(1/2)
-                print(f"Lambda = {lambda_}")
+                print(f"Lambda at final frame = {lambda_}")
     
                 
 

@@ -194,22 +194,22 @@ def animate_trajectories3D(data_file):
     
     plt.show()
 
-def pair_correlation(data_file, bins=50):
+def pair_correlation(data_file, bins=50): # I DONT NOT KNOW IF THIS IS THE CORRECT WAY
     
     n_iterations = len(list(data_file.keys()))
     
     # Create bins
     initial_distances = data_file[f"iter_{1}"][f"iter_{1}_unique_distances"]
-    _, bin_edges = plt.hist(initial_distances, bins=bins)
+    _, bin_edges = np.histogram(initial_distances, bins=bins)
     
     # initialise empty array for histograms of each iterations
-    histogram = np.empty(n_iterations, bins)
+    histogram = np.empty((n_iterations, bins))
     
     # Calculate histogram for each iteration
     for i in range(1, n_iterations):
         unique_distances = data_file[f"iter_{i}"][f"iter_{i}_unique_distances"]
-        n, _ = plt.hist(unique_distances, bins=bin_edges)
-        histogram[i] = n
+        hist, _ = np.histogram(unique_distances, bins=bin_edges)
+        histogram[i] = hist
         
     # Average over iterations
     histogram = np.mean(histogram, axis=0)
@@ -217,14 +217,17 @@ def pair_correlation(data_file, bins=50):
     # Get scaling parameters and scale
     n_atoms, n_dim = data_file["iter_1"]["iter_1_pos"].shape
     canvas_size = data_file["iter_1"].attrs["canvas_size"]
-    volume = np.multiple(canvas_size)
+    volume = np.prod(canvas_size)
     r = bin_edges[-1]
     delta_r = bin_edges[1] - bin_edges[0]
     histogram = 2 * volume * histogram / ( n_atoms*(n_atoms-1) * 4*np.pi*delta_r*r**2 )
     
     # Plot histogram
-    plt.hist(histogram, bin_edges)
-    plt.show
+    plt.figure(figsize=(10,7.5))
+    plt.hist(bin_edges[:-1], bin_edges, weights=histogram)
+    plt.xlabel('Distance (m)', fontsize=15)
+    plt.ylabel(r'g(r)', fontsize=15)
+    plt.show()
 
 ##### Main function to be called at start
 

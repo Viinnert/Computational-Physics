@@ -215,7 +215,7 @@ class Simulation:
         #Veloc. standard deviation = kinetic energy average * velocity unit scaling
         veloc_std_dev = np.sqrt(2* self.temp / self.pot_args['epsilon'])
         #self.veloc = np.column_stack([np.random.normal(loc=0.0, scale=veloc_std_dev, size=self.n_atoms) for d in range(self.canvas.n_dim)])
-        self.veloc = np.random.normal(loc=0, scale=veloc_std_dev, size=(self.n_atoms,self.canvas.n_dim)) * 0
+        self.veloc = np.random.normal(loc=0, scale=veloc_std_dev, size=(self.n_atoms,self.canvas.n_dim)) * 8.96
         
         
         print("Initial positions", self.pos)

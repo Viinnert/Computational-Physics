@@ -42,7 +42,7 @@ class Canvas:
     def __init__(self, n_dim, n_atoms, density, canvas_aspect_ratio):
         self.type = str(n_dim) + "D-canvas"
         self.n_dim = n_dim
-        self.length = (n_atoms / density)
+        self.length = (n_atoms / density)**(1/n_dim)
         self.size = np.asarray(canvas_aspect_ratio) * self.length / np.prod(canvas_aspect_ratio)
         print(f"\nCreated a {self.n_dim}D-canvas with sizes {self.size}")
         

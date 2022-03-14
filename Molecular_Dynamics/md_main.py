@@ -300,10 +300,12 @@ class Simulation:
             
             differences_per_dim.append(pdiff_d - (pdist_d_min * pdiff_d_signs*self.canvas.size[d]))
         
+        self.unique_distances = np.sqrt(np.add.reduce(min_distance_squared))
+        
         if return_differences:
-            return np.sqrt(np.add.reduce(min_distance_squared)), differences_per_dim
+            return self.unique_distances, differences_per_dim
         else:
-            return np.sqrt(np.add.reduce(min_distance_squared))
+            return self.unique_distances
         
     def energies(self):
             """
@@ -408,6 +410,7 @@ class Simulation:
                 datagroup.create_dataset(f"iter_{i}_kin_energy", data=kin_energies)
                 datagroup.create_dataset(f"iter_{i}_pot_energy", data=pot_energies)
                 datagroup.create_dataset(f"iter_{i}_force", data=self.force)
+                datagroup.create_dataset(f"iter_{i}_unique_distances", data=self.unique_distances)
             
             if self.init_mode == 'fcc':
                 lambda_ = (kin_energy_target/np.sum(kin_energies))**(1/2)

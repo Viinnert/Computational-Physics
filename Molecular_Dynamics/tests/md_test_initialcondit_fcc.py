@@ -29,15 +29,15 @@ if __name__ == "__main__":
     
     # Hardcoded inputs (Maybe replace with argv arguments)
     N_DIM = 3 # Number of dimensions
-    N_UNIT_CELLS = (3,3,3) # Number of unit cells per dimension
-    TEMPERATURE = 0.5 # Kelvin
-    DENSITY = 1.2 # Dimensionless: scaled by m/sigma**n_dim
+    N_UNIT_CELLS = (2,2,2) # Number of unit cells per dimension
+    TEMPERATURE = 1 # Kelvin
+    DENSITY = 0.8 # Dimensionless: scaled by m/sigma**n_dim
     ATOM_MASS = 6.6335e-26 # Mass of atoms (kg); Argon = 39.948 u
     POT_ARGS = {'sigma': 3.405e-10, 'epsilon': 119.8} # sigma, epsilon for Argon in units of m and k_B respectively.
 
     # Dimensionless constants
     CANVAS_ASPECT_RATIO = (1,1,1) # Canvas size (must be ndarray!)
-    END_OF_TIME = 0.5 # Maximum time
+    END_OF_TIME = 2 # Maximum time
 
     DELTA_T = 0.01 # Timestep
     N_ITERATIONS = int(END_OF_TIME / DELTA_T)
@@ -61,3 +61,4 @@ if __name__ == "__main__":
         animate_trajectories3D(data_file)
         #plot_trajectories2D(data_file)
         
+        pair_correlation(data_file)

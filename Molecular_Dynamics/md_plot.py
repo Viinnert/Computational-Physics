@@ -194,7 +194,22 @@ def animate_trajectories3D(data_file):
     
     plt.show()
 
-def pair_correlation(data_file, bins=50): # I DONT NOT KNOW IF THIS IS THE CORRECT WAY
+def pair_correlation(data_file, bins=50):
+    '''
+    Plots a histogram of the pair-wise distances
+
+    Parameters
+    ----------
+    data_file : h5py._hl.files.File
+        File object from which to extract the trajectory data.
+    bins : integer, optional
+        The amount of bins for the histogram. The default is 50.
+
+    Returns
+    -------
+    None.
+
+    '''
     
     n_iterations = len(list(data_file.keys()))
     
@@ -206,7 +221,7 @@ def pair_correlation(data_file, bins=50): # I DONT NOT KNOW IF THIS IS THE CORRE
     histogram = np.empty((n_iterations, bins))
     
     # Calculate histogram for each iteration
-    for i in range(1, n_iterations):
+    for i in range(round(n_iterations/2), n_iterations): # Skipping first frames due to initialisation of positions
         unique_distances = data_file[f"iter_{i}"][f"iter_{i}_unique_distances"]
         hist, _ = np.histogram(unique_distances, bins=bin_edges)
         histogram[i] = hist
@@ -218,7 +233,7 @@ def pair_correlation(data_file, bins=50): # I DONT NOT KNOW IF THIS IS THE CORRE
     n_atoms, n_dim = data_file["iter_1"]["iter_1_pos"].shape
     canvas_size = data_file["iter_1"].attrs["canvas_size"]
     volume = np.prod(canvas_size)
-    r = bin_edges[-1]
+    r = (bin_edges[1:] - bin_edges[:-1] )/2
     delta_r = bin_edges[1] - bin_edges[0]
     histogram = 2 * volume * histogram / ( n_atoms*(n_atoms-1) * 4*np.pi*delta_r*r**2 )
     
@@ -228,7 +243,9 @@ def pair_correlation(data_file, bins=50): # I DONT NOT KNOW IF THIS IS THE CORRE
     plt.xlabel('Distance (m)', fontsize=15)
     plt.ylabel(r'g(r)', fontsize=15)
     plt.show()
-
+    
+    
+    
 ##### Main function to be called at start
 
 if __name__ == "__main__":

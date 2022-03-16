@@ -372,8 +372,33 @@ class Simulation:
         #Express the force (in particle-wise vectorform) and mind the extra sign flip from force formula.
         force_array = -np.column_stack(lj_gradient_pos)
         
+        self.get_pressure(distance_list, lj_gradient_list)
+        
         #Note c_pos.shape[0] = particle number, [1] = number of dimensions = shape of force array
         return force_array
+
+    def get_pressure(self, ij_distances, ij_potential_gradient):
+        '''
+        Calculates the pressure
+
+        Parameters
+        ----------
+        ij_distances : 1D ndarray
+            1D array of all inter-particles distances r_ij.
+        ij_potential_gradient : 1D ndarray
+            1D array of the gradient of the potential between all particle (ij) pairs .
+
+        Returns
+        -------
+        None.
+
+        '''
+        KB = 1.3806e-23
+        N = self.n_atoms
+        T = self.temp
+        rho = self.density
+        
+        self.pressure = KB*T*rho - rho/(3*N) * np.mean(np.multiply(ij_distances, ij_potential_gradient)/2) 
 
     def __simulate__(self, n_iterations, delta_t):
         """
@@ -399,6 +424,7 @@ class Simulation:
                 datagroup = file.create_group(f"iter_{i}")
                 datagroup.attrs['canvas_size'] = self.canvas.size
                 datagroup.attrs['delta_t'] = delta_t
+                datagroup.attrs['pressure'] = self.pressure
                 
                 try:
                     datagroup.attrs['kin_energy_target'] = kin_energy_target
@@ -412,6 +438,7 @@ class Simulation:
                 datagroup.create_dataset(f"iter_{i}_force", data=self.force)
                 datagroup.create_dataset(f"iter_{i}_unique_distances", data=self.unique_distances)
             
+            print(f"Pressure at final frame = {self.pressure}")
             if self.init_mode == 'fcc':
                 lambda_ = (kin_energy_target/np.sum(kin_energies))**(1/2)
                 print(f"Lambda at final frame = {lambda_}")

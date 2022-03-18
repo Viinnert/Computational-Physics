@@ -49,7 +49,17 @@ if __name__ == "__main__":
     DATA_FILENAME = "trajectories.hdf5"
     
     #Main simulation procedure
-    sim = Simulation(n_atoms_or_unit_cells=N_ATOMS, atom_mass=ATOM_MASS,  density=DENSITY, temperature=TEMPERATURE , n_dim=N_DIM, canvas_aspect_ratio=CANVAS_ASPECT_RATIO, pot_args=POT_ARGS, init_mode=INIT_MODE, data_path=DATA_PATH, data_filename=DATA_FILENAME)
+    sim = Simulation(n_atoms_or_unit_cells=N_ATOMS, 
+                    atom_mass=ATOM_MASS,
+                    density=DENSITY, 
+                    temperature=TEMPERATURE, 
+                    n_dim=N_DIM, 
+                    canvas_aspect_ratio=CANVAS_ASPECT_RATIO, 
+                    pot_args=POT_ARGS, 
+                    init_mode=INIT_MODE, 
+                    data_path=DATA_PATH, 
+                    data_filename=DATA_FILENAME)
+    
     sim.__simulate__(n_iterations=N_ITERATIONS, delta_t=DELTA_T)
     
     #Plot:

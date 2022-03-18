@@ -29,8 +29,8 @@ if __name__ == "__main__":
     
     # Hardcoded inputs (Maybe replace with argv arguments)
     N_DIM = 3 # Number of dimensions
-    N_UNIT_CELLS = (2,2,2) # Number of unit cells per dimension
-    TEMPERATURE = 3 # Kelvin
+    N_UNIT_CELLS = (3,3,3) # Number of unit cells per dimension
+    TEMPERATURE = 3. # Kelvin
     DENSITY = 0.3 # Dimensionless: scaled by m/sigma**n_dim
     ATOM_MASS = 6.6335e-26 # Mass of atoms (kg); Argon = 39.948 u
     POT_ARGS = {'sigma': 3.405e-10, 'epsilon': 119.8} # sigma, epsilon for Argon in units of m and k_B respectively.
@@ -48,7 +48,17 @@ if __name__ == "__main__":
     DATA_FILENAME = "trajectories_fcc.hdf5"
     
     #Main simulation procedure
-    sim = Simulation(n_atoms_or_unit_cells=N_UNIT_CELLS, atom_mass=ATOM_MASS, density=DENSITY, temperature=TEMPERATURE ,n_dim=N_DIM, canvas_aspect_ratio=CANVAS_ASPECT_RATIO, pot_args=POT_ARGS, init_mode=INIT_MODE, data_path=DATA_PATH, data_filename=DATA_FILENAME)
+    sim = Simulation(n_atoms_or_unit_cells=N_UNIT_CELLS, 
+                     atom_mass=ATOM_MASS, 
+                     density=DENSITY, 
+                     temperature=TEMPERATURE,
+                     n_dim=N_DIM, 
+                     canvas_aspect_ratio=CANVAS_ASPECT_RATIO, 
+                     pot_args=POT_ARGS, 
+                     init_mode=INIT_MODE, 
+                     data_path=DATA_PATH, 
+                     data_filename=DATA_FILENAME)
+    
     sim.__simulate__(n_iterations=N_ITERATIONS, delta_t=DELTA_T)
     
     #Plot:
@@ -61,4 +71,3 @@ if __name__ == "__main__":
         animate_trajectories3D(data_file)
         #plot_trajectories2D(data_file)
         
-        pair_correlation(data_file, bins=100)

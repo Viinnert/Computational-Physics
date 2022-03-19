@@ -109,58 +109,6 @@ def pdiff(coord_array, return_distance=False):
         distances = np.linalg.norm(differences, axis=1)
         return differences, distances
 
-def get_pair_correlation(data_file, bins=50):
-    '''
-    Returns a histogram of the pair-wise distances for single simulation
-
-    Parameters
-    ----------
-    data_file : h5py._hl.files.File
-        File object from which to extract the trajectory data.
-    bins : integer, optional
-        The amount of bins for the histogram. The default is 50.
-
-    Returns
-    -------
-    histogram : array
-        1D array of the number per bin
-    
-    bin_edges : array
-        1D array of the positions/values of histogram bins.
-    '''
-    
-    n_iterations = len(list(data_file.keys()))
-    
-    # Create bins
-    initial_distances = data_file[f"iter_{1}"][f"iter_{1}_unique_distances"]
-    _, bin_edges = np.histogram(initial_distances, bins=bins)
-    
-    # initialise empty array for histograms of each iterations
-    n_init_iterations = round(n_iterations/2)
-    histogram = np.zeros(bins)
-    
-    # Calculate histogram for each iteration
-    for i in range(n_init_iterations, n_iterations): # Skipping first frames due to initialisation of positions
-        unique_distances = data_file[f"iter_{i}"][f"iter_{i}_unique_distances"]
-        hist, _ = np.histogram(unique_distances, bins=bin_edges)
-
-        histogram += hist
-
-    # Average over iterations
-    histogram = histogram / n_init_iterations
-
-    
-    # Get scaling parameters and scale
-    n_atoms, n_dim = data_file["iter_1"]["iter_1_pos"].shape
-    canvas_size = data_file["iter_1"].attrs["canvas_size"]
-    volume = np.prod(canvas_size)
-    delta_r = bin_edges[1] - bin_edges[0]
-    #r = (bin_edges[1:] - bin_edges[:-1] )/2
-    r = bin_edges[:-1] + delta_r/2
-    print("Canvas size: ", canvas_size)
-    histogram = 2 * volume * histogram / ( n_atoms*(n_atoms-1) * 4*np.pi*delta_r * r**2 )
-
-    return histogram, bin_edges
     
 
 class Simulation:
@@ -307,7 +255,7 @@ class Simulation:
         self.pos = n_pos
         
         # Calculate new forces
-        n_force_array = self.forces()
+        n_force_array, self.unique_distances, pot_gradients = self.forces()
         self.force = n_force_array
         
         # Calculate and update new velocities
@@ -318,6 +266,30 @@ class Simulation:
             mask = np.logical_or(n_pos[:, d] > self.canvas.size[d],  n_pos[:, d] < 0)
             (n_veloc[:, d])[mask] = (n_veloc[:, d])[mask]  #No loss of energy with periodic BCs + same direction
         self.veloc = n_veloc
+        
+        #Update pair correlation average:
+        paircor_burn_in = round(self.n_iterations/2)
+        bins = 120
+        
+        if self.c_iter == 1: 
+            # Initialize  bins
+            initial_distances = self.unique_distances
+            _, self.paircor_bin_edges = np.histogram(initial_distances, bins=bins)
+            
+            # initialise histogram average
+            self.paircor = np.zeros(bins)
+        elif self.c_iter > paircor_burn_in:
+            # Add to average paircorrelation and weight over iterations
+            self.paircor += self.get_pair_correlation(bins) / (self.n_iterations - paircor_burn_in)
+
+        
+        #Update pressure average:
+        pressure_burn_in = round(self.n_iterations / 4) #Number of iterations before keeping track of pressure
+        if self.c_iter == pressure_burn_in:
+            self.pressure = self.get_pressure(self.unique_distances, pot_gradients) / (self.n_iterations - pressure_burn_in)
+        elif self.c_iter > pressure_burn_in:
+            self.pressure += self.get_pressure(self.unique_distances, pot_gradients) / (self.n_iterations - pressure_burn_in)
+            
 
     def distances(self, return_differences=True):
         """
@@ -354,12 +326,12 @@ class Simulation:
             
             differences_per_dim.append(pdiff_d - (pdist_d_min * pdiff_d_signs*self.canvas.size[d]))
         
-        self.unique_distances = np.sqrt(np.add.reduce(min_distance_squared))
+        unique_distances = np.sqrt(np.add.reduce(min_distance_squared))
         
         if return_differences:
-            return self.unique_distances, differences_per_dim
+            return unique_distances, differences_per_dim
         else:
-            return self.unique_distances
+            return unique_distances
         
     def energies(self):
             """
@@ -410,7 +382,7 @@ class Simulation:
         vect_grad_func = np.vectorize(lambda d: sp_optim.approx_fprime(d, lennard_jones, np.sqrt(np.finfo(float).eps), self.pot_args))
         
         #For distances matrix calculate the gradient matrix: element i,j -> dU(r_ij)/dr
-        lj_gradient_list = list(vect_grad_func(np.array(distance_list))) 
+        lj_gradient_list = list(vect_grad_func(np.array(distance_list)))
         lj_gradient_dist = upper_triang_mat(lj_gradient_list, self.n_atoms, symmetric=True)
 
         #Set diagonal of distances to infinity to prevent division by zero in next step
@@ -427,14 +399,10 @@ class Simulation:
         #Express the force (in particle-wise vectorform) and mind the extra sign flip from force formula.
         force_array = -np.column_stack(lj_gradient_pos)
         
-        #Update pressure average:
-        if self.c_iter > round(self.n_iterations / 4):
-            self.update_pressure(np.array(distance_list), np.array(lj_gradient_list))
-        
         #Note c_pos.shape[0] = particle number, [1] = number of dimensions = shape of force array
-        return force_array
+        return force_array, np.array(distance_list),  np.array(lj_gradient_list) 
 
-    def update_pressure(self, ij_distances, ij_potential_gradient):
+    def get_pressure(self, ij_distances, ij_potential_gradient):
         '''
         Calculates the pressure and updates the cumultative average pressure
 
@@ -447,19 +415,48 @@ class Simulation:
 
         Returns
         -------
-        None.
+        c_pressure : 1D ndarray
 
         '''
         #Calculate dimension-less pressure, i.e. in units sigma^3/k_B 
         epsilon = self.pot_args['epsilon'] #epsilon in dimension k_B
-        c_pressure = self.temp*self.density * (1 - (epsilon/(3*self.n_atoms*self.temp) * 1/2 * np.dot(ij_distances, ij_potential_gradient)))
-        if self.pressure == 0:
-            self.pressure = c_pressure
-        else:
-            self.pressure += c_pressure
-            self.pressure /= 2 #Weight preceeding sum to take (cumultative) average
+        c_pressure = self.temp*self.density * (1 - (epsilon/(3*self.n_atoms*self.temp) * 1/2 * np.dot(ij_distances, ij_potential_gradient)  / self.n_atoms ))
+        print(c_pressure, np.dot(ij_distances, ij_potential_gradient))
+        return c_pressure
         
         #self.pressure = sp_const.kB*self.temp*self.density - self.density/(3*self.n_atoms) * np.mean(np.multiply(ij_distances, ij_potential_gradient)/2) 
+
+    def get_pair_correlation(self, bins=50):
+        '''
+        Returns a histogram of the pair-wise distances for single simulation
+
+        Parameters
+        ----------
+        data_file : h5py._hl.files.File
+            File object from which to extract the trajectory data.
+        bins : integer, optional
+            The amount of bins for the histogram. The default is 50.
+
+        Returns
+        -------
+        histogram : array
+            1D array of the number per bin
+        
+        bin_edges : array
+            1D array of the positions/values of histogram bins.
+        '''
+       
+        # Calculate histogram for each iteration
+        hist, _ = np.histogram(self.unique_distances, bins=self.paircor_bin_edges)
+
+        # Get scaling parameters and scale
+        volume = np.prod(self.canvas.size)
+        delta_r = self.paircor_bin_edges[1] - self.paircor_bin_edges[0]
+        r = self.paircor_bin_edges[:-1] + delta_r/2
+        print("Canvas size: ", self.canvas.size)
+        histogram = 2 * volume * hist / ( self.n_atoms*(self.n_atoms-1) * 4*np.pi*delta_r * r**2 )
+
+        return histogram
 
     def __simulate__(self, n_iterations, delta_t):
         """

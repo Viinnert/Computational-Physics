@@ -39,8 +39,8 @@ if __name__ == "__main__":
     DELTA_T = 0.01 # Timestep
     N_ITERATIONS = int(END_OF_TIME / DELTA_T)
     
-    TEMPERATURE = 0.3 # Kelvin
-    DENSITY = 3.0 # Dimensionless: scaled by m/sigma**n_dim
+    TEMPERATURE = 3.0 # Kelvin
+    DENSITY = 0.3 # Dimensionless: scaled by m/sigma**n_dim
     INIT_MODE = "fcc"
 
     DATA_PATH = WORKDIR_PATH + "data/" 
@@ -70,14 +70,13 @@ if __name__ == "__main__":
 
     
     #Pair correlation calculation and plotting:
-    SIM_REPETITIONS = 4
+    SIM_REPETITIONS = 6
     REDUCED_N_ITERATIONS = int(N_ITERATIONS / 1)
     
     histogram_list = []
     bin_edges = np.array([])
     
     for r in tqdm(range(SIM_REPETITIONS)):
-        print("dddd")
         temp_sim = Simulation(n_atoms_or_unit_cells=N_UNIT_CELLS, 
                         atom_mass=ATOM_MASS, 
                         density=DENSITY, 
@@ -91,7 +90,7 @@ if __name__ == "__main__":
             
         temp_sim.__simulate__(n_iterations=REDUCED_N_ITERATIONS, delta_t=DELTA_T)
         
-        histogram, bin_edges = get_pair_correlation(hdf.File(DATA_PATH + "temp.hdf5",'r'), bins=100)
+        histogram, bin_edges = temp_sim.paircor ,temp_sim.paircor_bin_edges
         histogram_list.append(histogram)
     
     plot_av_histogram(histogram_list, bin_edges)

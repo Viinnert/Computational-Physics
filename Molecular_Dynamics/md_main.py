@@ -148,7 +148,6 @@ def get_pair_correlation(data_file, bins=50):
     canvas_size = data_file["iter_1"].attrs["canvas_size"]
     volume = np.prod(canvas_size)
     delta_r = bin_edges[1] - bin_edges[0]
-    #r = (bin_edges[1:] - bin_edges[:-1] )/2
     r = bin_edges[:-1] + delta_r/2
     print("Canvas size: ", canvas_size)
     histogram = 2 * volume * histogram / ( n_atoms*(n_atoms-1) * 4*np.pi*delta_r * r**2 )
@@ -183,7 +182,7 @@ class Simulation:
         self.data_path = data_path
         self.data_filename = data_filename
         
-        #Initialize and save state of simulation:
+        # Initialize and save state of simulation:
         if init_mode == 'random':
             self.init_mode = 'random'
             self.n_atoms = n_atoms_or_unit_cells 
@@ -208,7 +207,7 @@ class Simulation:
         else:
             raise ValueError("Unknown initalization mode")
         
-        #Initialize forces and (average) pressure:
+        # Initialize forces and (average) pressure:
         self.force = np.zeros(self.pos.shape, dtype=np.float64)
         self.pressure = 0
         
@@ -242,13 +241,13 @@ class Simulation:
                               [0, unit_cell_length[1]/2, unit_cell_length[2]/2],
                               [0, 0, 0]])
         
-        #Copy the unit cell to tile the canvas and add the correct unit cell offset to each of the basis vectors.
-        #also apply Boundary conditions
+        # Copy the unit cell to tile the canvas and add the correct unit cell offset to each of the basis vectors.
+        # also apply Boundary conditions
         unit_cell_offsets = np.array(list(product(np.arange(0,n_unit_cells[0]),  np.arange(0,n_unit_cells[1]), np.arange(0,n_unit_cells[2])))) * unit_cell_length
         complete_lattice = np.tile(unit_cell, (np.prod(n_unit_cells), 1)) + np.repeat(unit_cell_offsets, unit_cell.shape[0], axis=0)
         self.pos = np.mod(complete_lattice, self.canvas.size)
         
-        #Veloc. standard deviation = kinetic energy average * velocity unit scaling
+        # Veloc. standard deviation = kinetic energy average * velocity unit scaling
         veloc_std_dev = np.sqrt(2* self.temp / self.pot_args['epsilon'])
         self.veloc = np.random.normal(loc=0, scale=veloc_std_dev, size=(self.n_atoms,self.canvas.n_dim)) * 8.96
         
@@ -270,7 +269,7 @@ class Simulation:
         # Calculate and update new positions
         n_pos = self.pos + delta_t * self.veloc + (delta_t**2 ) * c_force_array / 2
         
-        #Apply boundary conditions:
+        # Apply boundary conditions:
         for d in range(self.canvas.n_dim):
             mask = np.logical_or(n_pos[:, d] > self.canvas.size[d],  n_pos[:, d] < 0)
             (n_pos[:, d])[mask] = np.mod((n_pos[:, d])[mask], self.canvas.size[d])
@@ -283,7 +282,7 @@ class Simulation:
         # Calculate and update new velocities
         n_veloc = self.veloc + delta_t * (n_force_array + c_force_array) / 2
          
-        #Apply boundary conditions:
+        # Apply boundary conditions:
         for d in range(self.canvas.n_dim):
             mask = np.logical_or(n_pos[:, d] > self.canvas.size[d],  n_pos[:, d] < 0)
             (n_veloc[:, d])[mask] = (n_veloc[:, d])[mask]  #No loss of energy with periodic BCs + same direction
@@ -298,23 +297,23 @@ class Simulation:
         Return
         """
         
-        #Calculate all pairwise distances between particles
+        # Calculate all pairwise distances between particles
         min_distance_squared = []
         differences_per_dim = []
         
         for d in range(self.canvas.n_dim):
-            #Minimize pairwise per coordinate for closest instance of point.
-            #pdist_d = sp_dist.pdist(self.pos[:, [d]], 'euclidean')
+            # Minimize pairwise per coordinate for closest instance of point.
+            # pdist_d = sp_dist.pdist(self.pos[:, [d]], 'euclidean')
             pdiff_d = pdiff(self.pos[:, [d]], return_distance=False).reshape(-1)
               
-            #Find minimum distance instance of interacting particle for dimension d.
+            # Find minimum distance instance of interacting particle for dimension d.
             pdist_d_options = np.vstack((np.absolute(pdiff_d), np.absolute(np.absolute(pdiff_d)-self.canvas.size[d]))).T
             
             pdist_d_min = np.argmin(pdist_d_options, axis=1)
             
             min_distance_squared.append(pdist_d_options[np.arange(pdiff_d.shape[0]), pdist_d_min]**2)
             
-            #Correct distance if minimum was outside of simulated canvas
+            # Correct distance if minimum was outside of simulated canvas
             # -> determine whether +L or -L needs to be added if minimum was outside of simulated canvas
             pdiff_d_signs = np.ones(pdiff_d.shape)
             pdiff_d_signs[pdiff_d < 0] = -1
@@ -488,7 +487,6 @@ if __name__ == "__main__":
     ATOM_MASS = sys.argv[4] # Mass of atoms (kg); Argon = 39.948 u
     POT_ARGS = {'sigma': sys.argv[5], 'epsilon': sys.argv[6]} # sigma, epsilon for Argon in units of m and k_B
     
-    
     # Dimensionless constants
 
     MAX_LENGTH = sys.argv[6]
@@ -502,6 +500,6 @@ if __name__ == "__main__":
     
     DATA_FILENAME = sys.argv[10]
     
-    #Main simulation procedure
+    # Main simulation procedure
     sim = Simulation(n_atoms=N_ATOMS, atom_mass=ATOM_MASS,  density=DENSITY, temperature=TEMPERATURE ,n_dim=N_DIM, canvas_size=CANVAS_SIZE, pot_args=POT_ARGS, init_mode=INIT_MODE, data_path=DATA_PATH, data_filename=DATA_FILENAME)
     sim.__simulate__(n_iterations=N_ITERATIONS, delta_t=DELTA_T)

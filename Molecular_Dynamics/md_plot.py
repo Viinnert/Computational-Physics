@@ -118,11 +118,10 @@ def animate_trajectories2D(data_file):
     
     fig = plt.figure(figsize=(10,7.5))
 
-    #Plot trajectories iteration-wise
+    # Plot trajectories iteration-wise
     for i in range(1, n_iterations):
-        #plt.clf() # Clear figure / redraw
         
-        #Get arrays from the data file in shape (n_atoms x n_dim) 
+        # Get arrays from the data file in shape (n_atoms x n_dim) 
         current_pos = data_file[f"iter_{i}"][f"iter_{i}_pos"]
         
         cmap = cm.rainbow(np.linspace(0, 1, current_pos[:,1].shape[0])) 
@@ -158,11 +157,10 @@ def animate_trajectories3D(data_file):
     fig = plt.figure(figsize=(10,7.5))
     ax = fig.add_subplot(projection='3d')
 
-    #Plot trajectories iteration-wise
+    # Plot trajectories iteration-wise
     for i in range(1, n_iterations):
-        #ax.cla() # Clear figure / redraw
         
-        #Get arrays from the data file in shape (n_atoms x n_dim) 
+        # Get arrays from the data file in shape (n_atoms x n_dim) 
         current_pos = data_file[f"iter_{i}"][f"iter_{i}_pos"]
         
         cmap = cm.rainbow(np.linspace(0, 1, current_pos[:,1].shape[0])) 
@@ -175,7 +173,7 @@ def animate_trajectories3D(data_file):
 
         plt.pause(0.2)
         
-        #Remove current position pointer and add trail to plot
+        # Remove current position pointer and add trail to plot
         past_point_scatter = ax.scatter(current_pos[:,0], current_pos[:,1], current_pos[:,2], c=cmap, marker=".", s=6)
         current_point_scatter.remove()
     

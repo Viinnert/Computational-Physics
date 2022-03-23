@@ -60,15 +60,13 @@ The test folder contains the following pre-made experiment. Nothing has to be se
 - md_test_dynamics.py: This script runs a 2D simulation of 2 particles moving towards each other to showcase to working of the implemented dynamics.
 
 ```
-</li>
-<li> (Re)Initialize simulation environment and run:
+(Re)Initialize simulation environment and run:
 
-```python
+
 
 #Do (re)intialization of parameters (if required)
 #Call main simulation function to run simulation
 
 ```
-</li>
-<li>
+
 

@@ -13,6 +13,17 @@ Thomas Rothe (Studentnummer = s1930443)
 
 ## Usage
 
+This folder consist of the following folders:
+
+- _pycache_:
+- data: The data generated from the simulation is saved to this folder in hdf5 format and used for analysis. 
+- tests: This folder contains python scripts which result in pre-programmed experiment and produces figure which are used in the report. 
+
+and the following files:
+
+- md_main: This python script contains the primary simulation class and some extra essential functions for the simulation.
+- md_plot: This python script contains functions to analyse and/or plot the data generated from the simumlation.
+
 ### Run simulation:
 
 <ul>

@@ -35,18 +35,17 @@ To run the simulation call "Simulation.__simulate__()" with some parameter value
 An example:
 
 '''python
-N_DIM = 3 # Number of dimensions
-N_UNIT_CELLS = (3,3,3) # Number of unit cells per dimension
-TEMPERATURE = 3. # Kelvin
-DENSITY = 0.3 # Dimensionless: scaled by m/sigma**n_dim
-ATOM_MASS = 6.6335e-26 # Mass of atoms (kg); Argon = 39.948 u
-POT_ARGS = {'sigma': 3.405e-10, 'epsilon': 119.8} # sigma, epsilon for Argon in units of m and k_B respectively.
+N_DIM = 3 
+N_UNIT_CELLS = (3,3,3) 
+TEMPERATURE = 3. 
+DENSITY = 0.3  
+ATOM_MASS = 6.6335e-26 
+POT_ARGS = {'sigma': 3.405e-10, 'epsilon': 119.8}
 
-# Dimensionless constants
-CANVAS_ASPECT_RATIO = (1,1,1) # Canvas size (must be ndarray!)
-END_OF_TIME = 2 # Maximum time
+CANVAS_ASPECT_RATIO = (1,1,1) 
+END_OF_TIME = 2
 
-DELTA_T = 0.01 # Timestep
+DELTA_T = 0.01
 N_ITERATIONS = int(END_OF_TIME / DELTA_T)
     
 INIT_MODE = "fcc"
@@ -56,7 +55,6 @@ sys.path.insert(1, WORKDIR_PATH)
 DATA_PATH = WORKDIR_PATH + "data/" 
 DATA_FILENAME = "trajectories_fcc.hdf5"
     
-#Main simulation procedure
 sim = Simulation(n_atoms_or_unit_cells=N_UNIT_CELLS, 
                  atom_mass=ATOM_MASS, 
                  density=DENSITY, 

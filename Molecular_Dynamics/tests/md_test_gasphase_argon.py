@@ -39,8 +39,8 @@ if __name__ == "__main__":
     DELTA_T = 0.01 # Timestep
     N_ITERATIONS = int(END_OF_TIME / DELTA_T)
     
-    TEMPERATURE = 0.3 # Kelvin
-    DENSITY = 3.0 # Dimensionless: scaled by m/sigma**n_dim
+    TEMPERATURE = 3 # Kelvin
+    DENSITY = 0.3 # Dimensionless: scaled by m/sigma**n_dim
     INIT_MODE = "fcc"
 
     DATA_PATH = WORKDIR_PATH + "data/" 

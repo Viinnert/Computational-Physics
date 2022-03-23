@@ -8,6 +8,7 @@ sys.path.insert(1, WORKDIR_PATH)
 from md_main import *
 from md_plot import *
 
+import numpy as np
 
 def simple_init(size):
     i_pos = np.array([[0.3*size[0], 0.51 *size[1]],
@@ -42,8 +43,9 @@ if __name__ == "__main__":
     DELTA_T = 0.1 # Timestep
     N_ITERATIONS = int(END_OF_TIME / DELTA_T)
     
-    INIT_MODE = "random"
-    INIT_MODE = lambda: simple_init((N_ATOMS / DENSITY, N_ATOMS / DENSITY))
+    length = (N_ATOMS / DENSITY)**(1/N_DIM)
+    size = np.asarray(CANVAS_ASPECT_RATIO) * length / np.prod(CANVAS_ASPECT_RATIO)
+    INIT_MODE = lambda: simple_init(size)
     
     DATA_PATH = WORKDIR_PATH + "data/" 
     DATA_FILENAME = "trajectories.hdf5"

@@ -34,7 +34,7 @@ To run the simulation call "Simulation.__simulate__()" with some parameter value
 
 An example:
 
-'''
+'''HTML
 N_DIM = 3 
 N_UNIT_CELLS = (3,3,3) 
 TEMPERATURE = 3. 

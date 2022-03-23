@@ -19,15 +19,7 @@ def simple_init(size):
     return i_pos, i_veloc
 
 
-if __name__ == "__main__":
-    #def print_usage():
-    #    print("Usage:\n", file=sys.stderr)
-    #    print("Check out usage in README, you gave the wrong number of arguments", file=sys.stderr)
-
-    #required_args = 0
-    #if len(sys.argv) != required_args:
-    #    print_usage()
-    
+if __name__ == "__main__": 
     # Hardcoded inputs (Maybe replace with argv arguments)
     N_DIM = 2 # Number of dimensions
     N_ATOMS = 2 # Number of particles
@@ -50,7 +42,7 @@ if __name__ == "__main__":
     DATA_PATH = WORKDIR_PATH + "data/" 
     DATA_FILENAME = "trajectories.hdf5"
     
-    #Main simulation procedure
+    # Main simulation procedure
     sim = Simulation(n_atoms_or_unit_cells=N_ATOMS, 
                     atom_mass=ATOM_MASS,
                     density=DENSITY, 
@@ -64,13 +56,11 @@ if __name__ == "__main__":
     
     sim.__simulate__(n_iterations=N_ITERATIONS, delta_t=DELTA_T)
     
-    #Plot:
+    # Plot:
     with hdf.File(DATA_PATH + DATA_FILENAME,'r') as data_file:
-        
+        animate_trajectories2D(data_file)
         plot_energy(data_file)
-        
         plot_forces(data_file)
         
-        animate_trajectories2D(data_file)
-        #plot_trajectories2D(data_file)
+
         

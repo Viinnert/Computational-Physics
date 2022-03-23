@@ -32,6 +32,43 @@ To initialise the simulation you must call the "Simulation()" class with some ch
 
 To run the simulation call "Simulation.__simulate__()" with some parameter values. The simulation will now run and save the data to the "data" folder. It will also print the pressure of the system.
 
+An example:
+
+```python
+N_DIM = 3 
+N_UNIT_CELLS = (3,3,3) 
+TEMPERATURE = 3. 
+DENSITY = 0.3  
+ATOM_MASS = 6.6335e-26 
+POT_ARGS = {'sigma': 3.405e-10, 'epsilon': 119.8}
+
+CANVAS_ASPECT_RATIO = (1,1,1) 
+END_OF_TIME = 2
+
+DELTA_T = 0.01
+N_ITERATIONS = int(END_OF_TIME / DELTA_T)
+    
+INIT_MODE = "fcc"
+
+WORKDIR_PATH = os.path.dirname(os.path.realpath(__file__)) + "/../"
+sys.path.insert(1, WORKDIR_PATH)
+DATA_PATH = WORKDIR_PATH + "data/" 
+DATA_FILENAME = "trajectories_fcc.hdf5"
+    
+sim = Simulation(n_atoms_or_unit_cells=N_UNIT_CELLS, 
+                 atom_mass=ATOM_MASS, 
+                 density=DENSITY, 
+                 temperature=TEMPERATURE,
+                 n_dim=N_DIM, 
+                 canvas_aspect_ratio=CANVAS_ASPECT_RATIO, 
+                 pot_args=POT_ARGS, 
+                 init_mode=INIT_MODE, 
+                 data_path=DATA_PATH, 
+                 data_filename=DATA_FILENAME)
+    
+sim.__simulate__(n_iterations=N_ITERATIONS, delta_t=DELTA_T)
+```
+
 ### Analyse simulation
 
 After succesfully running a simulation you can analyse it and make various plots using the "md_plot" python script. The following functions are available in "md_plot":
@@ -43,29 +80,27 @@ After succesfully running a simulation you can analyse it and make various plots
 
 - To make a plot of the pair correlation the "get_pair_correlation()" function from the "md_main" script is required. Call this function using the data file and it returns the counts and bin edges of the histogram. If you want to run multiple simulations and average their pair correlation hisotgrams, use the "plot_av"histogram()" function from the "md_plot" script. This function requires a list of histogram lists from the "get_pair_correlation()" function.
 
-
-```
-</li>
-<li> (Re)Initialize simulation environment and run:
-
+An example (after having run the simulation code above):
 ```python
-
-#Do (re)intialization of parameters (if required)
-#Call main simulation function to run simulation
-
+with hdf.File(DATA_PATH + TRAJ_DATA_FILENAME,'r') as data_file:
+     animate_trajectories3D(data_file)
+     plot_energy(data_file)
+     plot_forces(data_file)
 ```
-</li>
-<li>
-Plot results from data file at ./data/ directory using plotting script
-```python
 
-import os
+### Pre-made experiments in the "tests" folder
 
-include('./md_plot.py')
-DATA_PATH = os.getcwd() + "/data/" + "DATA_FILENAME.hdf5"
+The test folder contains the following pre-made experiment. Nothing has to be set, the scripts can just be run and it will produce some figures automatically.
 
-#Call plotting function
+- md_test_gasphase_argon.py: This script simulates argon atoms in fcc positions. The temperature and density are set to the gas phase. After simulation it shows an animation of the movement of the particles. After this it calculates the average pair correlation histogram over 4 seperate simulations.
 
-```
-</li>
-</ul> 
+- md_test_liquidphase_argon.py: This script simulates argon atoms in fcc positions. The temperature and density are set to the liquid phase. After simulation it shows an animation of the movement of the particles. After this it calculates the average pair correlation histogram over 4 seperate simulations.
+
+- md_test_solidphase_argon.py: This script simulates argon atoms in fcc positions. The temperature and density are set to the solid phase. After simulation it shows an animation of the movement of the particles. After this it calculates the average pair correlation histogram over 4 seperate simulations.
+
+- md_test_paircor_random.py: This script simulates argon atoms in random initialised positions, the temperature and density are set to the gas phase, but you might play with other values for temperature and density. After simulation it shows an animation of the movement of the particles. After this it calculates the average pair correlation histogram over 6 seperate simulations.
+
+- md_test_initialcondit_fcc.py: This script simulates argon atoms in random initialised positions, the temperature and density are set to the gas phase, but you might play with other values for temperature and density. After simulation it shows an animation of the movement of the particles. No pair correlation is calculated afterwards.
+
+- md_test_dynamics.py: This script runs a 2D simulation of 2 particles moving towards each other to showcase to working of the implemented dynamics.
+

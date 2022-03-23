@@ -80,6 +80,14 @@ After succesfully running a simulation you can analyse it and make various plots
 
 - To make a plot of the pair correlation the "get_pair_correlation()" function from the "md_main" script is required. Call this function using the data file and it returns the counts and bin edges of the histogram. If you want to run multiple simulations and average their pair correlation hisotgrams, use the "plot_av"histogram()" function from the "md_plot" script. This function requires a list of histogram lists from the "get_pair_correlation()" function.
 
+An example (after having run the simulation code above):
+```python
+with hdf.File(DATA_PATH + TRAJ_DATA_FILENAME,'r') as data_file:
+     animate_trajectories3D(data_file)
+     plot_energy(data_file)
+     plot_forces(data_file)
+```
+
 ### Pre-made experiments in the "tests" folder
 
 The test folder contains the following pre-made experiment. Nothing has to be set, the scripts can just be run and it will produce some figures automatically.

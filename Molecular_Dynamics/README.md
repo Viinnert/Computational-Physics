@@ -71,16 +71,4 @@ The test folder contains the following pre-made experiment. Nothing has to be se
 ```
 </li>
 <li>
-Plot results from data file at ./data/ directory using plotting script
-```python
 
-import os
-
-include('./md_plot.py')
-DATA_PATH = os.getcwd() + "/data/" + "DATA_FILENAME.hdf5"
-
-#Call plotting function
-
-```
-</li>
-</ul> 

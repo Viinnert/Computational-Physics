@@ -32,6 +32,45 @@ To initialise the simulation you must call the "Simulation()" class with some ch
 
 To run the simulation call "Simulation.__simulate__()" with some parameter values. The simulation will now run and save the data to the "data" folder. It will also print the pressure of the system.
 
+An example:
+
+'''
+N_DIM = 3 # Number of dimensions
+N_UNIT_CELLS = (3,3,3) # Number of unit cells per dimension
+TEMPERATURE = 3. # Kelvin
+DENSITY = 0.3 # Dimensionless: scaled by m/sigma**n_dim
+ATOM_MASS = 6.6335e-26 # Mass of atoms (kg); Argon = 39.948 u
+POT_ARGS = {'sigma': 3.405e-10, 'epsilon': 119.8} # sigma, epsilon for Argon in units of m and k_B respectively.
+
+# Dimensionless constants
+CANVAS_ASPECT_RATIO = (1,1,1) # Canvas size (must be ndarray!)
+END_OF_TIME = 2 # Maximum time
+
+DELTA_T = 0.01 # Timestep
+N_ITERATIONS = int(END_OF_TIME / DELTA_T)
+    
+INIT_MODE = "fcc"
+
+WORKDIR_PATH = os.path.dirname(os.path.realpath(__file__)) + "/../"
+sys.path.insert(1, WORKDIR_PATH)
+DATA_PATH = WORKDIR_PATH + "data/" 
+DATA_FILENAME = "trajectories_fcc.hdf5"
+    
+#Main simulation procedure
+sim = Simulation(n_atoms_or_unit_cells=N_UNIT_CELLS, 
+                 atom_mass=ATOM_MASS, 
+                 density=DENSITY, 
+                 temperature=TEMPERATURE,
+                 n_dim=N_DIM, 
+                 canvas_aspect_ratio=CANVAS_ASPECT_RATIO, 
+                 pot_args=POT_ARGS, 
+                 init_mode=INIT_MODE, 
+                 data_path=DATA_PATH, 
+                 data_filename=DATA_FILENAME)
+    
+sim.__simulate__(n_iterations=N_ITERATIONS, delta_t=DELTA_T)
+'''
+
 ### Analyse simulation
 
 After succesfully running a simulation you can analyse it and make various plots using the "md_plot" python script. The following functions are available in "md_plot":
@@ -58,15 +97,4 @@ The test folder contains the following pre-made experiment. Nothing has to be se
 - md_test_initialcondit_fcc.py: This script simulates argon atoms in random initialised positions, the temperature and density are set to the gas phase, but you might play with other values for temperature and density. After simulation it shows an animation of the movement of the particles. No pair correlation is calculated afterwards.
 
 - md_test_dynamics.py: This script runs a 2D simulation of 2 particles moving towards each other to showcase to working of the implemented dynamics.
-
-```
-(Re)Initialize simulation environment and run:
-
-
-
-#Do (re)intialization of parameters (if required)
-#Call main simulation function to run simulation
-
-```
-
 

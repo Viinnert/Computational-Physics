@@ -31,16 +31,16 @@ if __name__ == "__main__":
     # Hardcoded inputs (Maybe replace with argv arguments)
     N_DIM = 2 # Number of dimensions
     N_ATOMS = 2 # Number of particles
-    TEMPERATURE = 100 # Kelvin
+    TEMPERATURE = 3 # Kelvin
     DENSITY = 0.1 # Dimensionless = scaled by m/sigma**n_dim
     ATOM_MASS = 6.6335e-26 # Mass of atoms (kg); Argon = 39.948 u
     POT_ARGS = {'sigma': 3.405e-10, 'epsilon': 119.8} # sigma, epsilon for Argon in units of m and k_B respectively.
 
     # Dimensionless constants
     CANVAS_ASPECT_RATIO = (1,1) # Canvas size (must be ndarray!)
-    END_OF_TIME = 5 # Maximum time
+    END_OF_TIME = 2 # Maximum time
 
-    DELTA_T = 0.1 # Timestep
+    DELTA_T = 0.01 # Timestep
     N_ITERATIONS = int(END_OF_TIME / DELTA_T)
     
     length = (N_ATOMS / DENSITY)**(1/N_DIM)

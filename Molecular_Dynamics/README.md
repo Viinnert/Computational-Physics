@@ -7,9 +7,9 @@ Including simulation of Argon molecules in Lennard-Jones potential using periodi
 .....
 
 ## Authors
-Vincent Krabbenborg (Studentnummer = s2029189)
+Vincent Krabbenborg (Studentnumber = s2029189)
 
-Thomas Rothe (Studentnummer = s1930443)
+Thomas Rothe (Studentnumber = s1930443)
 
 ## Usage
 
@@ -26,11 +26,11 @@ and the following files:
 
 ### Run simulation:
 
-<ul>
-<li> Include main file in new python script
-```python
+To run a simulation you must import "md_main".
 
-include('./md_main.py')
+To initialise the simulation you must call the "Simulation()" class with some chosen parameters. The initialisation mode "init_mode" can be set either "random", "fcc" or some self made function which returns 2 (#particles, #dimension) numpy arrays using the python lambda function
+
+To run the simulation call "Simulation.__simulate__()" with some parameter values. The simulation will now run and save the data to the "data" folder. It will also print the pressure of the system.
 
 ```
 </li>

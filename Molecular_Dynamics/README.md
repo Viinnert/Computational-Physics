@@ -34,7 +34,7 @@ To run the simulation call "Simulation.__simulate__()" with some parameter value
 
 An example:
 
-'''
+'''python
 N_DIM = 3 # Number of dimensions
 N_UNIT_CELLS = (3,3,3) # Number of unit cells per dimension
 TEMPERATURE = 3. # Kelvin

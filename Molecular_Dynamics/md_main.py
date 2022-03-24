@@ -605,12 +605,13 @@ class Simulation:
                 check_interval = 9
                 rescale_counter = 0
                 rescale_limit = 4
-                if i % int(self.n_iterations / check_interval) == 0 and rescale_counter < rescale_limit:
-                    lambda_ = (kin_energy_target/np.sum(kin_energies))**(1/2)
-                    if abs(lambda_ - 1) > energy_tolerance:
-                        self.veloc = lambda_ * self.veloc
-                        rescale_counter += 1
-                
+                if self.init_mode == "random" or self.init_mode == "fcc":
+                    if i % int(self.n_iterations / check_interval) == 0 and rescale_counter < rescale_limit:
+                        lambda_ = (kin_energy_target/np.sum(kin_energies))**(1/2)
+                        if abs(lambda_ - 1) > energy_tolerance:
+                            self.veloc = lambda_ * self.veloc
+                            rescale_counter += 1
+                    
                 # Store each iteration in a separate group of datasets
                 datagroup = file.create_group(f"iter_{i}")
                 datagroup.attrs['canvas_size'] = self.canvas.size

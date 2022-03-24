@@ -33,13 +33,30 @@ from tqdm import tqdm
 ###### Main program:
 
 class Canvas:
-    """
+    '''
     Defines a space in which simulation is taking place
-    Parameters
-    - dim::int = Number of dimensions of canvas (only 2D or 3D supported)
-    - scanvas_aspect_ratio::tuple = Aspect ratio of canvas in each dimension
-    """
+
+    '''
     def __init__(self, n_dim, n_atoms, density, canvas_aspect_ratio):
+        '''
+        Initialises de Canvas class
+
+        Parameters
+        ----------
+        n_dim : integer
+            The dimensionality of the simulation space.
+        n_atoms : integer
+            The amount of atoms to simulate.
+        density : float
+            The dimensionless density of the system.
+        canvas_aspect_ratio : tuple
+            The relative dimensional lengths.
+
+        Returns
+        -------
+        None.
+
+        '''
         self.type = str(n_dim) + "D-canvas"
         self.n_dim = n_dim
         self.length = (n_atoms / density)**(1/n_dim)
@@ -48,32 +65,48 @@ class Canvas:
         
 
 def lennard_jones(distance, pot_args):
-    """
+    '''
     Calculate and return the value of the lennard jones potential for given 
-    inter-particle distance, sigma and epsilon
-    Args
-    - distance = distance for which to evaluate the potential
-    - sigma = Sigma parameter (Particle size) in LS potential
-    - epsilon = Epsilon parameter (Temperature) in LS potential
-    Return
-    - pot_val::float = Value of the lennard jones potential for given sigma and epsilon
-    """
+    inter-particle distance, sigma and epsilon.
+
+    Parameters
+    ----------
+    distance : ndarray
+        Distances for which to evaluate the potential
+
+    Returns
+    -------
+    Potential : ndarray
+        The lennard jones potential for the given distances
+
+    '''
+    
     return 4 * ( (1/distance)**12 - (1/distance)**6 )
 
 def upper_triang_mat(upper_entries, mat_size,  symmetric):
-    """
-    Returns a (anti-)symmetric upper-trinagular matrix for a given list of upper-trinagular entries with zero diagonal
+    '''
+    Returns a (anti-)symmetric upper-triangular matrix for a given list of upper-triangular entries with zero diagonal
                                 / 0  a  b  c \ 
                                |  a  0  d  e  | 
     e.g. [a, b, c, d, e, f] -> |  b  d  0  f  |
                                 \ c  e  f  0 /
     
-    Args
-    - upper_entries::list = list of strictly upper triangular entries
-    - mat_size::Int = Target Matrix size n for an (n x x) output matrix.
-    Return
-    - sut_mat::ndarray = (anit-)Symmetric Upper-Trinagular (size x size) matrix with zero diagonal
-    """
+
+    Parameters
+    ----------
+    upper_entries : list
+        List of strictly upper triangular entries.
+    mat_size : int
+        Target Matrix size n for an (n x x) output matrix..
+    symmetric : boolean
+        Whether the matrix should be symmetric or not.
+
+    Returns
+    -------
+    sut_mat : ndarray
+        The (anti-)symmetric upper-triangular matrix for a given list
+
+    '''
     if len(upper_entries) != int((mat_size**2 - mat_size)/2):
         raise ValueError("The provided list should match the number of upper triangular entries for a matrix of the given size")
     
@@ -87,16 +120,23 @@ def upper_triang_mat(upper_entries, mat_size,  symmetric):
 
 
 def pdiff(coord_array, return_distance=False):
-    """
-        Pairwise (eucledian) difference
-        Note: Similar to pdist in the scipy package.
-        
-        Args
-        - coord_array::ndarray = 2D array (n_coordinates x n_dim)
-        - return_distance::bool = Whether to return also the pairwise euclidean distance
-        Return
-        - 
-    """
+    '''
+    Pairwise (eucledian) difference
+    Note: Similar to pdist in the scipy package.
+
+    Parameters
+    ----------
+    coord_array : ndarray
+        2D array (n_coordinates x n_dim).
+    return_distance : boolean, optional
+        Whether to return also the pairwise euclidean distance. The default is False.
+
+    Returns
+    -------
+    ndarray
+        The pairwise euclidean difference. Also the distances if return_distances = True.
+
+    '''
     if len(coord_array.shape) != 2:
         raise ValueError("The coordinate array should be 2 dimensional but isn't")
     
@@ -155,30 +195,49 @@ def get_pair_correlation(data_file, bins=50):
     canvas_size = data_file["iter_1"].attrs["canvas_size"]
     volume = np.prod(canvas_size)
     delta_r = bin_edges[1] - bin_edges[0]
-    #r = (bin_edges[1:] - bin_edges[:-1] )/2
     r = bin_edges[:-1] + delta_r/2
-    print("Canvas size: ", canvas_size)
     histogram = 2 * volume * histogram / ( n_atoms*(n_atoms-1) * 4*np.pi*delta_r * r**2 )
 
     return histogram, bin_edges
     
 
 class Simulation:
-    """
+    '''
     Defines a molecular simulation with appropiate conditions
-    Parameters
-    - n_atoms_or_unit_cells::int or tuple = Number of atoms to be simulated or tuple of number of unit cells per dimension
-    - atom_mass::int = 
-    - n_dim::int = Number of dimensions to simulate in
-    - canvas_size::ndarray = Array of canvas side length in each dimension
-    - time::ndarray = Ordered array of all time values to simulate over
-    - delta_t::float = Timestep per iteration in simulation; Should equal used timestep in time array
-    - pot_args::dict = Dictionary with arguments (e.g. constants) required for calculating the potential 
-                    e.g. sigma, epsilon for Argon in units of m and k_B respectively.
-    - init_mode::string or callable = Specify method to initialize positions and velocities
-    """
+    '''
     def __init__(self, n_atoms_or_unit_cells, atom_mass, density, temperature,n_dim, canvas_aspect_ratio, pot_args, init_mode, data_path, data_filename):
+        '''
+        Initialises the Simulation class
 
+        Parameters
+        ----------
+        n_atoms_or_unit_cells : integer
+            Number of atoms to be simulated or tuple of number of unit cells per dimension.
+        atom_mass : float
+            The mass of the simulated particles.
+        density : float
+            The dimensionless density of the system.
+        temperature : float
+            The dimensionless temperature of the system.
+        n_dim : integer
+            Number of spacial dimensions to simulate.
+        canvas_aspect_ratio : tuple
+            The relative ratio of the dimensional lengths.
+        pot_args : dictionary
+            Dictionary with arguments (e.g. constants) required for calculating the potential 
+            e.g. sigma, epsilon for Argon in units of m and k_B respectively.
+        init_mode : string
+            Specify method to initialize positions and velocities.
+        data_path : string
+            Path to where the file is saved.
+        data_filename : string
+            The file name.
+
+        Returns
+        -------
+        None.
+
+        '''
         self.density = density
         self.temp = temperature
         self.atom_mass = atom_mass
@@ -188,7 +247,7 @@ class Simulation:
         self.data_path = data_path
         self.data_filename = data_filename
         
-        #Initialize and save state of simulation:
+        # Initialize and save state of simulation:
         if init_mode == 'random':
             self.init_mode = 'random'
             self.n_atoms = n_atoms_or_unit_cells #n_atoms
@@ -213,85 +272,83 @@ class Simulation:
         else:
             raise ValueError("Unknown initalization mode")
         
-        #Initialize forces and (average) pressure:
+        # Initialize forces and (average) pressure:
         self.force = np.zeros(self.pos.shape, dtype=np.float64)
         self.pressure = 0
         
         print("Succesfully initialized simulation!")
 
     def initialize_atoms_random(self):
-        """
+        '''
         Initializes position and velocity of N atoms randomly on canvas and returns them
-        Args
-        - canvas::Canvas = Space in which evolution should take place
-        Return
-        - pos::ndarray = Array of initial molecule positions
-        - veloc::ndarray = Array of initial molecule velocities
-        """
 
+        Returns
+        -------
+        positions : ndarray
+            The position of the particles (#particles, #dimension).
+        velocities : ndarray
+            The velocities of the particles (#particles, #dimension).
+
+        '''
         self.pos = np.mod((np.random.randn(self.n_atoms, self.canvas.n_dim) * self.canvas.size), self.canvas.size[0])
         self.veloc = np.random.randn(self.n_atoms, self.canvas.n_dim) * (self.canvas.size/6) 
-        #print("Initial positions", self.pos)
+
         return self.pos, self.veloc
     
     def initialize_atoms_in_fcc(self, n_unit_cells):
-        """
+        '''
         Initializes position and velocity of 4 * n_unit_cells atoms on canvas in n_unit_cells number of unit cells in FCC config.
         at temperature self.temp and self.density 
-        
-        Args
-        - canvas::Canvas = Space in which evolution should take place
-        Return
-        - pos::ndarray = Array of initial molecule positions
-        - veloc::ndarray = Array of initial molecule velocities
-        """
-        
+
+        Parameters
+        ----------
+        n_unit_cells : tuple
+            The amount of units cell in each dimension.
+
+        Returns
+        -------
+        positions : ndarray
+            The position of the particles (#particles, #dimension).
+        velocities : ndarray
+            The velocities of the particles (#particles, #dimension).
+
+        '''
         unit_cell_length = self.canvas.size / np.asarray(n_unit_cells[0])
         print(f"Unit cell length: {unit_cell_length}")
-        
-        #Prepare a single unit cell in the basis in which (0,0,0) is the midpoint of a unit cell.
-        #unit_cell = np.array([[1/2* unit_cell_length[0] , 1/2*unit_cell_length[1], 0],
-        #                     [1* unit_cell_length[0], 0, 1/2*unit_cell_length[2]],
-        #                     [0, 1* unit_cell_length[1], 1/2*unit_cell_length[2]],
-        #                     [0, 0, 1* unit_cell_length[2]]])
         
         unit_cell = np.array([[unit_cell_length[0]/2, unit_cell_length[1]/2, 0],
                               [unit_cell_length[0]/2, 0, unit_cell_length[2]/2],
                               [0, unit_cell_length[1]/2, unit_cell_length[2]/2],
                               [0, 0, 0]])
         
-        #Copy the unit cell to tile the canvas and add the correct unit cell offset to each of the basis vectors.
-        #also apply Boundary conditions
+        # Copy the unit cell to tile the canvas and add the correct unit cell offset to each of the basis vectors.
+        # also apply Boundary conditions
         unit_cell_offsets = np.array(list(product(np.arange(0,n_unit_cells[0]),  np.arange(0,n_unit_cells[1]), np.arange(0,n_unit_cells[2])))) * unit_cell_length
         complete_lattice = np.tile(unit_cell, (np.prod(n_unit_cells), 1)) + np.repeat(unit_cell_offsets, unit_cell.shape[0], axis=0)
         self.pos = np.mod(complete_lattice, self.canvas.size)
         
-        #Veloc. standard deviation = kinetic energy average * velocity unit scaling
+        # Veloc. standard deviation = kinetic energy average * velocity unit scaling
         veloc_std_dev = np.sqrt(2* self.temp / self.pot_args['epsilon'])
         self.veloc = np.random.normal(loc=0, scale=veloc_std_dev, size=(self.n_atoms,self.canvas.n_dim)) * 8.96
         
-        
-        #print("Initial positions", self.pos)
-        #print("Initial velocity", self.veloc)
         return self.pos, self.veloc
 
     def evolute(self, delta_t):
-        """
+        '''
         Evolutes the particles position and velocity arrays
         via Newtonian EOM with Lennard-Jones Potential and returns updated
         position and velocity arrays
-        
-        Args
-        - canvas::Canvas = Space in which evolution should take place
-        - c_pos::ndarray = Array of positions at current iteration
-        - c_veloc::ndarray = Array of velocities at current iteration
-        - c_force_array::ndarray = Summed force on each particle (n_atoms x n_dim)
-        - atom_mass::float = Mass of each particle/atom (all assumed equal)
-        - delta_t::float = Timestep per iteration in simulation
-        
-        Updates self.pos and self.veloc
-        
-        """
+
+        Parameters
+        ----------
+        delta_t : float
+            Timestep per iteration in simulation.
+
+        Returns
+        -------
+        None.
+
+        '''
         
         # Calculate current forces
         c_force_array = self.force #self.forces()
@@ -299,7 +356,7 @@ class Simulation:
         # Calculate and update new positions
         n_pos = self.pos + delta_t * self.veloc + (delta_t**2 ) * c_force_array / 2
         
-        #Apply boundary conditions:
+        # Apply boundary conditions:
         for d in range(self.canvas.n_dim):
             mask = np.logical_or(n_pos[:, d] > self.canvas.size[d],  n_pos[:, d] < 0)
             (n_pos[:, d])[mask] = np.mod((n_pos[:, d])[mask], self.canvas.size[d])
@@ -312,13 +369,13 @@ class Simulation:
         # Calculate and update new velocities
         n_veloc = self.veloc + delta_t * (n_force_array + c_force_array) / 2
          
-        #Apply boundary conditions:
+        # Apply boundary conditions:
         for d in range(self.canvas.n_dim):
             mask = np.logical_or(n_pos[:, d] > self.canvas.size[d],  n_pos[:, d] < 0)
             (n_veloc[:, d])[mask] = (n_veloc[:, d])[mask]  #No loss of energy with periodic BCs + same direction
         self.veloc = n_veloc
         
-        #Update pair correlation average:
+        # Update pair correlation average:
         paircor_burn_in = round(self.n_iterations/2)
         bins = 120
         
@@ -333,43 +390,48 @@ class Simulation:
             # Add to average paircorrelation and weight over iterations
             self.paircor += self.get_pair_correlation(bins) / (self.n_iterations - paircor_burn_in)
 
-        
-        #Update pressure average:
-        pressure_burn_in = round(self.n_iterations / 4) #Number of iterations before keeping track of pressure
+        # Update pressure average:
+        pressure_burn_in = round(self.n_iterations / 4) # Number of iterations before keeping track of pressure
         if self.c_iter == pressure_burn_in:
-            self.pressure = self.get_pressure(self.unique_distances, pot_gradients) / (self.n_iterations - pressure_burn_in)
+            self.pressure = self.update_pressure(self.unique_distances, pot_gradients) / (self.n_iterations - pressure_burn_in)
         elif self.c_iter > pressure_burn_in:
-            self.pressure += self.get_pressure(self.unique_distances, pot_gradients) / (self.n_iterations - pressure_burn_in)
+            self.pressure += self.update_pressure(self.unique_distances, pot_gradients) / (self.n_iterations - pressure_burn_in)
 
     def distances(self, return_differences=True):
-        """
+        '''
         Calculate and return the reduced array of unique inter-particle distances
-        
-        Args
-        - return_differences::bool = Whether, beside absolute distances, also differences x_i - x_j in each coordinate should be returned.
-        Return
-        - distances_arr::ndarray = Inter-particle distance between any unique pair of particles
-        - differences_per_dim::list(ndarray) = Inter-particle distance (unique) per dimension component
-        """
-        
-        #Calculate all pairwise distances between particles
+
+        Parameters
+        ----------
+        return_differences : boolean, optional
+            Whether, beside absolute distances, also differences x_i - x_j in each coordinate should be returned. 
+            The default is True.
+
+        Returns
+        -------
+        unique distances : ndarray
+            All unique inter-particle distances.
+        differences per dimension : ndarray, optional
+            All element wise unique inter-particle distances.
+        '''
+        # Calculate all pairwise distances between particles
         min_distance_squared = []
         differences_per_dim = []
         
         for d in range(self.canvas.n_dim):
-            #Minimize pairwise per coordinate for closest instance of point.
-            #pdist_d = sp_dist.pdist(self.pos[:, [d]], 'euclidean')
+            # Minimize pairwise per coordinate for closest instance of point.
+            # pdist_d = sp_dist.pdist(self.pos[:, [d]], 'euclidean')
             pdiff_d = pdiff(self.pos[:, [d]], return_distance=False).reshape(-1)
             
             
-            #Find minimum distance instance of interacting particle for dimension d.
+            # Find minimum distance instance of interacting particle for dimension d.
             pdist_d_options = np.vstack((np.absolute(pdiff_d), np.absolute(np.absolute(pdiff_d)-self.canvas.size[d]))).T
             
             pdist_d_min = np.argmin(pdist_d_options, axis=1)
             
             min_distance_squared.append(pdist_d_options[np.arange(pdiff_d.shape[0]), pdist_d_min]**2)
             
-            #Correct distance if minimum was outside of simulated canvas
+            # Correct distance if minimum was outside of simulated canvas
             # -> determine whether +L or -L needs to be added if minimum was outside of simulated canvas
             pdiff_d_signs = np.ones(pdiff_d.shape)
             pdiff_d_signs[pdiff_d < 0] = -1
@@ -385,73 +447,79 @@ class Simulation:
         
         
     def energies(self):
-            """
-            Calculate and return the kinetic and potential energy on every particle
+        '''
+        Calculate and return the kinetic and potential energy on every particle
 
-            Args
-            - c_pos::ndarray = Current position of all particles
-            - pot_args::dict = Arguments/constants required to evaluate the potential
+        Returns
+        -------
+        kin_energy : ndarray
+            Kinetic energy of every particle.
+        pot_energy : ndarray
+            Potential energy of every particle.
+        kin_energy_target : float
+            The total kinetic energy target of the system.
 
-            Return
-            - kin_energy::ndarray = Kinetic energy of every particle
-            - pot_energy::ndarray = Potential energy of every particle
-            """
-            kin_energy = 1/2*np.sum(self.veloc*self.veloc, axis=1)
+        '''
+        kin_energy = 1/2*np.sum(self.veloc*self.veloc, axis=1)
             
-            kin_energy_target = (self.n_atoms - 1) * 3/2 * self.temp
+        kin_energy_target = (self.n_atoms - 1) * 3/2 * self.temp
 
                 
-            #Obtain current interparticle distances
-            distance_arr = self.distances(return_differences=False) #minimal (efficient) list of all pairwise distances
+        # Obtain current interparticle distances
+        distance_arr = self.distances(return_differences=False) #minimal (efficient) list of all pairwise distances
             
-            #Get distances into symmetric array form with element i,j -> distance r_ij (less efficient) 
-            # and sum potential  energy contributions for each particle
-            # NOTE: pot energy of single particle in 2 particle interaction = half of total pot interaction energy.
-            pot_energy = np.sum(upper_triang_mat(list(lennard_jones(distance_arr, self.pot_args)), self.n_atoms, symmetric=True), axis=1) / 2
+        # Get distances into symmetric array form with element i,j -> distance r_ij (less efficient) 
+        # and sum potential  energy contributions for each particle
+        # NOTE: pot energy of single particle in 2 particle interaction = half of total pot interaction energy.
+        pot_energy = np.sum(upper_triang_mat(list(lennard_jones(distance_arr, self.pot_args)), self.n_atoms, symmetric=True), axis=1) / 2
             
-            return kin_energy, pot_energy, kin_energy_target
+        return kin_energy, pot_energy, kin_energy_target
         
     def forces(self):
-        """
+        '''
         Calculate and return the force on every particle, due to all other particles
-        Args
-        - c_pos::ndarray = Current position of all particles
-        - c_iter
-        - n_iterations
-        Return
-        - force::ndarray = Summed force on each particle by any other particle (n_atoms x n_dim)  
-        """
-        distance_list, differences_per_dim = self.distances() #minimal (efficient) list of all pairwise distances
+
+        Returns
+        -------
+        force array : ndarray
+            Summed force on each particle by any other particle (n_atoms x n_dim).
+        distances array : ndarray
+            All unique inter particle distances.
+        gradient array : ndarray
+            The gradient of the potential for all particles. 
+
+        '''
+        distance_list, differences_per_dim = self.distances() # minimal (efficient) list of all pairwise distances
         distance_list = list(distance_list)
         
-        #Get distances into symmetric array form with element i,j -> distance r_ij (less efficient)
+        # Get distances into symmetric array form with element i,j -> distance r_ij (less efficient)
         distance_mat = upper_triang_mat(distance_list, self.n_atoms,  symmetric=True)
 
-        #Vectorize gradient function (low performance):
+        # Vectorize gradient function (low performance):
         vect_grad_func = np.vectorize(lambda d: sp_optim.approx_fprime(d, lennard_jones, np.sqrt(np.finfo(float).eps), self.pot_args))
         
-        #For distances matrix calculate the gradient matrix: element i,j -> dU(r_ij)/dr
+        # For distances matrix calculate the gradient matrix: element i,j -> dU(r_ij)/dr
         lj_gradient_list = list(vect_grad_func(np.array(distance_list))) 
         lj_gradient_dist = upper_triang_mat(lj_gradient_list, self.n_atoms, symmetric=True)
 
-        #Set diagonal of distances to infinity to prevent division by zero in next step
+        # Set diagonal of distances to infinity to prevent division by zero in next step
         distance_mat[np.diag_indices(self.n_atoms)] = np.inf
         
-        #Calculate grad_r U(r_ij) = (dU/dr) / r_ij * \vec{ pos_i} = matrix \
+        # Calculate grad_r U(r_ij) = (dU/dr) / r_ij * \vec{ pos_i} = matrix \
         # and sum all gradients per particle at same time with dot (instead of *) operation.
-        #To prevent 3D dimensional array multiplication complexity, split array in spatial dims. 
+        # To prevent 3D dimensional array multiplication complexity, split array in spatial dims. 
         lj_gradient_dist_divided_by_r = lj_gradient_dist/distance_mat
         
-        #Apply the chain rule of the gradient x,y,z to distance r
+        # Apply the chain rule of the gradient x,y,z to distance r
         lj_gradient_pos = tuple([np.sum(np.multiply(lj_gradient_dist_divided_by_r, upper_triang_mat(list(differences_per_dim[d]), self.n_atoms,symmetric=False)), axis=1) for d in range(self.n_dim)])
   
-        #Express the force (in particle-wise vectorform) and mind the extra sign flip from force formula.
+        # Express the force (in particle-wise vectorform) and mind the extra sign flip from force formula.
         force_array = -np.column_stack(lj_gradient_pos)
 
-        #Note c_pos.shape[0] = particle number, [1] = number of dimensions = shape of force array
+        # NOTE: c_pos.shape[0] = particle number, [1] = number of dimensions = shape of force array
         return force_array, np.array(distance_list),  np.array(lj_gradient_list) 
 
-    def get_pressure(self, ij_distances, ij_potential_gradient):
+    def update_pressure(self, ij_distances, ij_potential_gradient):
         '''
         Calculates the pressure and updates the cumultative average pressure
 
@@ -467,13 +535,11 @@ class Simulation:
         None.
 
         '''
-        #Calculate dimension-less pressure, i.e. in units sigma^3/k_B 
+        # Calculate dimension-less pressure, i.e. in units sigma^3/k_B 
         epsilon = self.pot_args['epsilon'] #epsilon in dimension k_B
         c_pressure = self.temp*self.density * (1 - (epsilon/(3*self.n_atoms*self.temp) * 1/2 * np.dot(ij_distances, ij_potential_gradient)  / self.n_atoms ))
-        print(c_pressure, np.dot(ij_distances, ij_potential_gradient))
+
         return c_pressure
-        
-        #self.pressure = sp_const.kB*self.temp*self.density - self.density/(3*self.n_atoms) * np.mean(np.multiply(ij_distances, ij_potential_gradient)/2) 
 
     def get_pair_correlation(self, bins=50):
         '''
@@ -494,7 +560,6 @@ class Simulation:
         bin_edges : array
             1D array of the positions/values of histogram bins.
         '''
-       
         # Calculate histogram for each iteration
         hist, _ = np.histogram(self.unique_distances, bins=self.paircor_bin_edges)
 
@@ -502,29 +567,32 @@ class Simulation:
         volume = np.prod(self.canvas.size)
         delta_r = self.paircor_bin_edges[1] - self.paircor_bin_edges[0]
         r = self.paircor_bin_edges[:-1] + delta_r/2
-        print("Canvas size: ", self.canvas.size)
         histogram = 2 * volume * hist / ( self.n_atoms*(self.n_atoms-1) * 4*np.pi*delta_r * r**2 )
 
         return histogram
 
     def __simulate__(self, n_iterations, delta_t):
-        """
+        '''
         Executes simulation on initialized simulation
-        
-        Args
-        - n_iterations::int = Number of iterations/timesteps before end of simualtion
-        - delta_t::float = Timestep / difference in time between iterations
-        
-        Return
-        - --
-        """
-        
+
+        Parameters
+        ----------
+        n_iterations : int
+            Number of iterations/timesteps before end of simualtion
+        delta_t : float
+            Timestep / difference in time between iterations
+
+        Returns
+        -------
+        None.
+
+        '''
         self.n_iterations = n_iterations
         
         with hdf.File(self.data_path + self.data_filename, "w") as file:
             for i in tqdm(range(1, n_iterations+1)):
                 
-                self.c_iter = i #Communicate current iteration
+                self.c_iter = i # Communicate current iteration
                 
                 # Evolute 1 step
                 self.evolute(delta_t)
@@ -532,7 +600,7 @@ class Simulation:
                 # Retrieve current kinetic and potential energies
                 kin_energies, pot_energies, kin_energy_target = self.energies()
                 
-                #Rescale velocities if kinetic energy if too far from target
+                # Rescale velocities if kinetic energy if too far from target
                 energy_tolerance = 0.04
                 check_interval = 9
                 rescale_counter = 0
@@ -543,7 +611,6 @@ class Simulation:
                         self.veloc = lambda_ * self.veloc
                         rescale_counter += 1
                 
-                 
                 # Store each iteration in a separate group of datasets
                 datagroup = file.create_group(f"iter_{i}")
                 datagroup.attrs['canvas_size'] = self.canvas.size
@@ -562,12 +629,10 @@ class Simulation:
                 datagroup.create_dataset(f"iter_{i}_force", data=self.force)
                 datagroup.create_dataset(f"iter_{i}_unique_distances", data=self.unique_distances)
             
-            print(f"Pressure at final frame = {self.pressure}")
-            
-            #Print final lambda value for analysis:
+            # Print final lambda and pressure for analysis:
             lambda_ = (kin_energy_target/np.sum(kin_energies))**(1/2)
             print(f"Lambda at final frame = {lambda_}")
-    
+            print(f"Pressure at final frame = {self.pressure}")
                 
 
 ##### Main function tobe called at start
@@ -610,6 +675,6 @@ if __name__ == "__main__":
     
     DATA_FILENAME = sys.argv[10]
     
-    #Main simulation procedure
+    # Main simulation procedure
     sim = Simulation(n_atoms=N_ATOMS, atom_mass=ATOM_MASS,  density=DENSITY, temperature=TEMPERATURE ,n_dim=N_DIM, canvas_size=CANVAS_SIZE, pot_args=POT_ARGS, init_mode=INIT_MODE, data_path=DATA_PATH, data_filename=DATA_FILENAME)
     sim.__simulate__(n_iterations=N_ITERATIONS, delta_t=DELTA_T)

@@ -42,57 +42,58 @@ mpl.rcParams.update(params)
 mpl.rc("font", **{"family": "sans-serif", "sans-serif": ["Times"]})
 
 def plot_forces(data_file):
-    """
+    '''
     Plots the forces on particles stored in a given data file.
-    
-    Args
-    - data_file::h5py._hl.files.File = File object from which to extract the energy data
-                                       Groups label iterations 'iter_{index}'
-                                       
 
-    Return
-    - --
-    """
+    Parameters
+    ----------
+    data_file : hd5py
+        File object from which to extract the energy data
+        Groups label iterations 'iter_{index}'.
+
+    Returns
+    -------
+    None.
+
+    '''
     n_iterations = len(list(data_file.keys()))
-    
     delta_t = data_file[f"iter_1"].attrs["delta_t"]
-    
     time = np.arange(0, n_iterations-1)*delta_t
     
     forces_array = np.array([np.sum((np.array(data_file[f"iter_{i}"][f"iter_{i}_force"]))**2, axis=1) for i in range(1, n_iterations)])
-
-    print(forces_array.shape)
     
-    fig = plt.figure(figsize=(10,7.5))
+    fig = plt.figure(figsize=(7.5, 5))
     
     plt.plot(time, forces_array, label="Force")
-    plt.xlabel(r"Time $\sqrt{\frac{\sigma^2  m}{epsilon}}$")
-    plt.ylabel(r"Force")
+    plt.xlabel(r"Time $\sqrt{\frac{\sigma^2  m}{epsilon}}$", fontsize=15)
+    plt.ylabel(r"Force", fontsize=15)
     plt.show()
 
 
 def plot_energy(data_file):
-    """
-    Plots the 3kinetic, potential and total energy of particles stored in a given data file.
-    
-    Args
-    - data_file::h5py._hl.files.File = File object from which to extract the energy data
-                                       Groups label iterations 'iter_{index}'
-                                       
+    '''
+     Plots the kinetic, potential and total energy of particles stored in a given data file.
 
-    Return
-    - --
-    """
+    Parameters
+    ----------
+    data_file : hd5py
+        File object from which to extract the energy data
+        Groups label iterations 'iter_{index}'.
+
+    Returns
+    -------
+    None.
+
+    '''
     n_iterations = len(list(data_file.keys()))
     delta_t = data_file[f"iter_1"].attrs["delta_t"]
     time = np.arange(0, n_iterations-1)*delta_t
-    
     
     pot_energy = np.array([np.sum(np.array(data_file[f"iter_{i}"][f"iter_{i}_pot_energy"])) for i in range(1, n_iterations)])
     kin_energy = np.array([np.sum(np.array(data_file[f"iter_{i}"][f"iter_{i}_kin_energy"])) for i in range(1, n_iterations)])
     tot_energy = pot_energy + kin_energy
     
-    fig = plt.figure(figsize=(10,7.5))
+    fig = plt.figure(figsize=(7.5, 5))
     
     plt.plot(time, kin_energy, color="red", label="Kinetic Energy")
     plt.plot(time, pot_energy, color="blue", label="Potential Energy")
@@ -104,36 +105,36 @@ def plot_energy(data_file):
     except:
         pass
     
-    plt.xlabel(r"Time $\sqrt{\frac{\sigma^2  m}{epsilon}}$")
-    plt.ylabel(r"Energy")
+    plt.xlabel(r"Time $\sqrt{\frac{\sigma^2  m}{epsilon}}$", fontsize=15)
+    plt.ylabel(r"Energy", fontsize=15)
     plt.legend()
     plt.show()
 
 
 
 def animate_trajectories2D(data_file):
-    """
-    animates the trajectories of particles stored in a given 2D data file.
-    
-    Args
-    - data_file::h5py._hl.files.File = File object from which to extract the trajectory data
-                                       Groups label iterations 'iter_{index}'
-                                       ,groups should contain position and velocity datasets 
-                                       named '{groupname}_pos' and '{groupname}_veloc' 
+    '''
+    Animates the trajectories of particles stored in a given 2D data file.
 
-    Return
-    - --
-    """
+    Parameters
+    ----------
+    data_file : hd5py
+        File object from which to extract the energy data
+        Groups label iterations 'iter_{index}'.
+
+    Returns
+    -------
+    None.
+
+    '''
     n_iterations = len(list(data_file.keys()))
     n_atoms, n_dim = data_file["iter_1"]["iter_1_pos"].shape
     
     fig = plt.figure(figsize=(10,7.5))
 
-    #Plot trajectories iteration-wise
+    # Plot trajectories iteration-wise
     for i in range(1, n_iterations):
-        #plt.clf() # Clear figure / redraw
-        
-        #Get arrays from the data file in shape (n_atoms x n_dim) 
+         # Get arrays from the data file in shape (n_atoms x n_dim) 
         current_pos = data_file[f"iter_{i}"][f"iter_{i}_pos"]
         
         cmap = cm.rainbow(np.linspace(0, 1, current_pos[:,1].shape[0])) 
@@ -154,29 +155,29 @@ def animate_trajectories2D(data_file):
 
 
 def animate_trajectories3D(data_file):
-    """
+    '''
     animates the trajectories of particles stored in a given 3D data file.
-    
-    Args
-    - data_file::h5py._hl.files.File = File object from which to extract the trajectory data
-                                       Groups label iterations 'iter_{index}'
-                                       ,groups should contain position and velocity datasets 
-                                       named '{groupname}_pos' and '{groupname}_veloc' 
 
-    Return
-    - --
-    """
+    Parameters
+    ----------
+    data_file : hd5py
+        File object from which to extract the energy data
+        Groups label iterations 'iter_{index}'.
+
+    Returns
+    -------
+    None.
+
+    '''
     n_iterations = len(list(data_file.keys()))
     n_atoms, n_dim = data_file["iter_1"]["iter_1_pos"].shape
     
     fig = plt.figure(figsize=(10,7.5))
     ax = fig.add_subplot(projection='3d')
 
-    #Plot trajectories iteration-wise
-    for i in range(1, n_iterations):
-        #ax.cla() # Clear figure / redraw
-        
-        #Get arrays from the data file in shape (n_atoms x n_dim) 
+    # Plot trajectories iteration-wise
+    for i in range(1, n_iterations): 
+        # Get arrays from the data file in shape (n_atoms x n_dim) 
         current_pos = data_file[f"iter_{i}"][f"iter_{i}_pos"]
         
         cmap = cm.rainbow(np.linspace(0, 1, current_pos[:,1].shape[0])) 
@@ -189,7 +190,7 @@ def animate_trajectories3D(data_file):
 
         plt.pause(0.2)
         
-        #Remove current position pointer and add trail to plot
+        # Remove current position pointer and add trail to plot
         past_point_scatter = ax.scatter(current_pos[:,0], current_pos[:,1], current_pos[:,2], c=cmap, marker=".", s=6)
         current_point_scatter.remove()
     
@@ -215,7 +216,7 @@ def plot_av_histogram(histogram_list, bin_edges):
     av_histogram = np.mean(histogram_list, axis=0)
     
     # Plot histogram
-    plt.figure(figsize=(10,7.5))
+    plt.figure(figsize=(7.5, 5))
     plt.hist(bin_edges[:-1], bin_edges, weights=av_histogram)
     plt.xlabel('Distance (m)', fontsize=15)
     plt.ylabel(r'g(r)', fontsize=15)
@@ -240,7 +241,6 @@ if __name__ == "__main__":
     DATA_FILENAME = "trajectories.hdf5" 
 
     
-    with hdf.File(DATA_PATH + DATA_FILENAME,'r') as data_file:
-        
+    with hdf.File(DATA_PATH + DATA_FILENAME,'r') as data_file:    
         animate_trajectories3D(data_file)
-        #plot_trajectories2D(data_file)
+

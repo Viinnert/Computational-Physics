@@ -9,7 +9,7 @@ sys.path.insert(1, WORKDIR_PATH)
 from md_main import *
 from md_plot import *
 
-np.seed(42) #Fix random seed
+np.random.seed(42) #Fix random seed
 
 def simple_init(size):
     i_pos = np.array([[0.3*size[0], 0.51 *size[1]],

@@ -48,6 +48,10 @@ def plot_forces(data_file):
     Args
     - data_file::h5py._hl.files.File = File object from which to extract the energy data
                                        Groups label iterations 'iter_{index}'
+                                       
+
+    Return
+    - --
     """
     n_iterations = len(list(data_file.keys()))
     
@@ -74,6 +78,10 @@ def plot_energy(data_file):
     Args
     - data_file::h5py._hl.files.File = File object from which to extract the energy data
                                        Groups label iterations 'iter_{index}'
+                                       
+
+    Return
+    - --
     """
     n_iterations = len(list(data_file.keys()))
     delta_t = data_file[f"iter_1"].attrs["delta_t"]
@@ -112,16 +120,20 @@ def animate_trajectories2D(data_file):
                                        Groups label iterations 'iter_{index}'
                                        ,groups should contain position and velocity datasets 
                                        named '{groupname}_pos' and '{groupname}_veloc' 
+
+    Return
+    - --
     """
     n_iterations = len(list(data_file.keys()))
     n_atoms, n_dim = data_file["iter_1"]["iter_1_pos"].shape
     
     fig = plt.figure(figsize=(10,7.5))
 
-    # Plot trajectories iteration-wise
+    #Plot trajectories iteration-wise
     for i in range(1, n_iterations):
+        #plt.clf() # Clear figure / redraw
         
-        # Get arrays from the data file in shape (n_atoms x n_dim) 
+        #Get arrays from the data file in shape (n_atoms x n_dim) 
         current_pos = data_file[f"iter_{i}"][f"iter_{i}_pos"]
         
         cmap = cm.rainbow(np.linspace(0, 1, current_pos[:,1].shape[0])) 
@@ -150,6 +162,9 @@ def animate_trajectories3D(data_file):
                                        Groups label iterations 'iter_{index}'
                                        ,groups should contain position and velocity datasets 
                                        named '{groupname}_pos' and '{groupname}_veloc' 
+
+    Return
+    - --
     """
     n_iterations = len(list(data_file.keys()))
     n_atoms, n_dim = data_file["iter_1"]["iter_1_pos"].shape
@@ -157,10 +172,11 @@ def animate_trajectories3D(data_file):
     fig = plt.figure(figsize=(10,7.5))
     ax = fig.add_subplot(projection='3d')
 
-    # Plot trajectories iteration-wise
+    #Plot trajectories iteration-wise
     for i in range(1, n_iterations):
+        #ax.cla() # Clear figure / redraw
         
-        # Get arrays from the data file in shape (n_atoms x n_dim) 
+        #Get arrays from the data file in shape (n_atoms x n_dim) 
         current_pos = data_file[f"iter_{i}"][f"iter_{i}_pos"]
         
         cmap = cm.rainbow(np.linspace(0, 1, current_pos[:,1].shape[0])) 
@@ -173,7 +189,7 @@ def animate_trajectories3D(data_file):
 
         plt.pause(0.2)
         
-        # Remove current position pointer and add trail to plot
+        #Remove current position pointer and add trail to plot
         past_point_scatter = ax.scatter(current_pos[:,0], current_pos[:,1], current_pos[:,2], c=cmap, marker=".", s=6)
         current_point_scatter.remove()
     
@@ -184,9 +200,17 @@ def plot_av_histogram(histogram_list, bin_edges):
     '''
     Plots (the average of a) given (array of) histogram(s) 
 
-    Args
-    - histogram_list::ndarray = array of histogram's counts
-    - bin_edges::ndarray = array of the histogram's bin edges
+    Parameters
+    ----------
+    histogram_array : nd.array
+        List of histograms
+    bins : integer, optional
+        The amount of bins for the histogram. The default is 50.
+
+    Returns
+    -------
+    None.
+
     '''
     av_histogram = np.mean(histogram_list, axis=0)
     

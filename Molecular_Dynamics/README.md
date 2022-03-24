@@ -17,7 +17,7 @@ This folder consist of the following folders:
 
 - _pycache_:
 - data: The data generated from the simulation is saved to this folder in hdf5 format and used for analysis. 
-- tests: This folder contains python scripts which result in pre-programmed experiment and produces figure which are used in the report. For each prepared experiment script the corresponding figure in the report is mentioned further below in square brackets.
+- tests: This folder contains python scripts which result in pre-programmed experiment and produces figure which are used in the report. 
 
 and the following files:
 
@@ -26,14 +26,7 @@ and the following files:
 
 ### Run simulation:
 
-To run a simulation you must import "md_main", e.g.
-```python
-WORKDIR_PATH = os.path.dirname(os.path.realpath(__file__)) + "/../"
-sys.path.insert(1, WORKDIR_PATH)
-
-from md_main import *
-from md_plot import *
-```
+To run a simulation you must import "md_main".
 
 To initialise the simulation you must call the "Simulation()" class with some chosen parameters. The initialisation mode "init_mode" can be set either "random", "fcc" or some self made function which returns 2 (#particles, #dimension) dimensional numpy arrays (one for the positions and one for the velocities) using the python lambda function
 
@@ -99,15 +92,15 @@ with hdf.File(DATA_PATH + TRAJ_DATA_FILENAME,'r') as data_file:
 
 The test folder contains the following pre-made experiment. Nothing has to be set, the scripts can just be run and it will produce some figures automatically.
 
-- md_test_gasphase_argon.py [report figure x, y, ...]: This script simulates argon atoms in fcc positions. The temperature and density are set to the gas phase. After simulation it shows an animation of the movement of the particles. After this it calculates the average pair correlation histogram over 4 seperate simulations.
+- md_test_gasphase_argon.py: This script simulates argon atoms in fcc positions. The temperature and density are set to the gas phase. After simulation it shows an animation of the movement of the particles. After this it calculates the average pair correlation histogram over 4 seperate simulations.
 
-- md_test_liquidphase_argon.py [report figure x, y, ...]: This script simulates argon atoms in fcc positions. The temperature and density are set to the liquid phase. After simulation it shows an animation of the movement of the particles. After this it calculates the average pair correlation histogram over 4 seperate simulations.
+- md_test_liquidphase_argon.py: This script simulates argon atoms in fcc positions. The temperature and density are set to the liquid phase. After simulation it shows an animation of the movement of the particles. After this it calculates the average pair correlation histogram over 4 seperate simulations.
 
-- md_test_solidphase_argon.py [report figure x, y, ...]: This script simulates argon atoms in fcc positions. The temperature and density are set to the solid phase. After simulation it shows an animation of the movement of the particles. After this it calculates the average pair correlation histogram over 4 seperate simulations.
+- md_test_solidphase_argon.py: This script simulates argon atoms in fcc positions. The temperature and density are set to the solid phase. After simulation it shows an animation of the movement of the particles. After this it calculates the average pair correlation histogram over 4 seperate simulations.
 
-- md_test_paircor_random.py [report figure x, y, ...]: This script simulates argon atoms in random initialised positions, the temperature and density are set to the gas phase, but you might play with other values for temperature and density. After simulation it shows an animation of the movement of the particles. After this it calculates the average pair correlation histogram over 6 seperate simulations.
+- md_test_paircor_random.py: This script simulates argon atoms in random initialised positions, the temperature and density are set to the gas phase, but you might play with other values for temperature and density. After simulation it shows an animation of the movement of the particles. After this it calculates the average pair correlation histogram over 6 seperate simulations.
 
-- md_test_initialcondit_fcc.py [report figure x, y, ...]: This script simulates argon atoms in random initialised positions, the temperature and density are set to the gas phase, but you might play with other values for temperature and density. After simulation it shows an animation of the movement of the particles. No pair correlation is calculated afterwards.
+- md_test_initialcondit_fcc.py: This script simulates argon atoms in random initialised positions, the temperature and density are set to the gas phase, but you might play with other values for temperature and density. After simulation it shows an animation of the movement of the particles. No pair correlation is calculated afterwards.
 
-- md_test_dynamics.py [report figure x, y, ...]: This script runs a 2D simulation of 2 particles moving towards each other to showcase to working of the implemented dynamics.
+- md_test_dynamics.py: This script runs a 2D simulation of 2 particles moving towards each other to showcase to working of the implemented dynamics.
 

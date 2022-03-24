@@ -109,6 +109,58 @@ def pdiff(coord_array, return_distance=False):
         distances = np.linalg.norm(differences, axis=1)
         return differences, distances
 
+def get_pair_correlation(data_file, bins=50):
+    '''
+    Returns a histogram of the pair-wise distances for single simulation
+
+    Parameters
+    ----------
+    data_file : h5py._hl.files.File
+        File object from which to extract the trajectory data.
+    bins : integer, optional
+        The amount of bins for the histogram. The default is 50.
+
+    Returns
+    -------
+    histogram : array
+        1D array of the number per bin
+    
+    bin_edges : array
+        1D array of the positions/values of histogram bins.
+    '''
+    
+    n_iterations = len(list(data_file.keys()))
+    
+    # Create bins
+    initial_distances = data_file[f"iter_{0}"][f"iter_{0}_unique_distances"]
+    _, bin_edges = np.histogram(initial_distances, bins=bins)
+    
+    # initialise empty array for histograms of each iterations
+    n_init_iterations = round(n_iterations/2)
+    histogram = np.zeros(bins)
+    
+    # Calculate histogram for each iteration
+    for i in range(n_init_iterations, n_iterations): # Skipping first frames due to initialisation of positions
+        unique_distances = data_file[f"iter_{i}"][f"iter_{i}_unique_distances"]
+        hist, _ = np.histogram(unique_distances, bins=bin_edges)
+
+        histogram += hist
+
+    # Average over iterations
+    histogram = histogram / n_init_iterations
+
+    
+    # Get scaling parameters and scale
+    n_atoms, n_dim = data_file["iter_1"]["iter_1_pos"].shape
+    canvas_size = data_file["iter_1"].attrs["canvas_size"]
+    volume = np.prod(canvas_size)
+    delta_r = bin_edges[1] - bin_edges[0]
+    #r = (bin_edges[1:] - bin_edges[:-1] )/2
+    r = bin_edges[:-1] + delta_r/2
+    print("Canvas size: ", canvas_size)
+    histogram = 2 * volume * histogram / ( n_atoms*(n_atoms-1) * 4*np.pi*delta_r * r**2 )
+
+    return histogram, bin_edges
     
 
 class Simulation:
@@ -216,7 +268,6 @@ class Simulation:
         
         #Veloc. standard deviation = kinetic energy average * velocity unit scaling
         veloc_std_dev = np.sqrt(2* self.temp / self.pot_args['epsilon'])
-        #self.veloc = np.column_stack([np.random.normal(loc=0.0, scale=veloc_std_dev, size=self.n_atoms) for d in range(self.canvas.n_dim)])
         self.veloc = np.random.normal(loc=0, scale=veloc_std_dev, size=(self.n_atoms,self.canvas.n_dim)) * 8.96
         
         
@@ -255,7 +306,7 @@ class Simulation:
         self.pos = n_pos
         
         # Calculate new forces
-        n_force_array, self.unique_distances, pot_gradients = self.forces()
+        n_force_array,self.unique_distances, pot_gradients = self.forces()
         self.force = n_force_array
         
         # Calculate and update new velocities
@@ -289,7 +340,6 @@ class Simulation:
             self.pressure = self.get_pressure(self.unique_distances, pot_gradients) / (self.n_iterations - pressure_burn_in)
         elif self.c_iter > pressure_burn_in:
             self.pressure += self.get_pressure(self.unique_distances, pot_gradients) / (self.n_iterations - pressure_burn_in)
-            
 
     def distances(self, return_differences=True):
         """
@@ -333,6 +383,7 @@ class Simulation:
         else:
             return unique_distances
         
+        
     def energies(self):
             """
             Calculate and return the kinetic and potential energy on every particle
@@ -347,10 +398,8 @@ class Simulation:
             """
             kin_energy = 1/2*np.sum(self.veloc*self.veloc, axis=1)
             
-            if self.init_mode == 'fcc':
-                kin_energy_target = (self.n_atoms - 1) * 3/2 * self.temp
-            else:
-                kin_energy_target = None
+            kin_energy_target = (self.n_atoms - 1) * 3/2 * self.temp
+
                 
             #Obtain current interparticle distances
             distance_arr = self.distances(return_differences=False) #minimal (efficient) list of all pairwise distances
@@ -382,7 +431,7 @@ class Simulation:
         vect_grad_func = np.vectorize(lambda d: sp_optim.approx_fprime(d, lennard_jones, np.sqrt(np.finfo(float).eps), self.pot_args))
         
         #For distances matrix calculate the gradient matrix: element i,j -> dU(r_ij)/dr
-        lj_gradient_list = list(vect_grad_func(np.array(distance_list)))
+        lj_gradient_list = list(vect_grad_func(np.array(distance_list))) 
         lj_gradient_dist = upper_triang_mat(lj_gradient_list, self.n_atoms, symmetric=True)
 
         #Set diagonal of distances to infinity to prevent division by zero in next step
@@ -398,7 +447,7 @@ class Simulation:
   
         #Express the force (in particle-wise vectorform) and mind the extra sign flip from force formula.
         force_array = -np.column_stack(lj_gradient_pos)
-        
+
         #Note c_pos.shape[0] = particle number, [1] = number of dimensions = shape of force array
         return force_array, np.array(distance_list),  np.array(lj_gradient_list) 
 
@@ -415,7 +464,7 @@ class Simulation:
 
         Returns
         -------
-        c_pressure : 1D ndarray
+        None.
 
         '''
         #Calculate dimension-less pressure, i.e. in units sigma^3/k_B 
@@ -483,6 +532,18 @@ class Simulation:
                 # Retrieve current kinetic and potential energies
                 kin_energies, pot_energies, kin_energy_target = self.energies()
                 
+                #Rescale velocities if kinetic energy if too far from target
+                energy_tolerance = 0.04
+                check_interval = 9
+                rescale_counter = 0
+                rescale_limit = 4
+                if i % int(self.n_iterations / check_interval) == 0 and rescale_counter < rescale_limit:
+                    lambda_ = (kin_energy_target/np.sum(kin_energies))**(1/2)
+                    if abs(lambda_ - 1) > energy_tolerance:
+                        self.veloc = lambda_ * self.veloc
+                        rescale_counter += 1
+                
+                 
                 # Store each iteration in a separate group of datasets
                 datagroup = file.create_group(f"iter_{i}")
                 datagroup.attrs['canvas_size'] = self.canvas.size
@@ -503,9 +564,9 @@ class Simulation:
             
             print(f"Pressure at final frame = {self.pressure}")
             
-            if self.init_mode == 'fcc':
-                lambda_ = (kin_energy_target/np.sum(kin_energies))**(1/2)
-                print(f"Lambda at final frame = {lambda_}")
+            #Print final lambda value for analysis:
+            lambda_ = (kin_energy_target/np.sum(kin_energies))**(1/2)
+            print(f"Lambda at final frame = {lambda_}")
     
                 
 

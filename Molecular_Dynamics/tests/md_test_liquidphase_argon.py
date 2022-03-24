@@ -4,6 +4,8 @@ from md_main import *
 from md_plot import *
 import numpy as np
 
+np.random.seed(42) #Fix seed for reproducebility.
+
 # Workdir path = dir. of main scripts!
 WORKDIR_PATH = os.path.dirname(os.path.realpath(__file__)) + "/../"
 sys.path.insert(1, WORKDIR_PATH)

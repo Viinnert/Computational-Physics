@@ -1,13 +1,14 @@
 import sys
-from md_main import *
-from md_plot import *
 import os
-
-np.random.seed(42) #Fix random seed
 
 #Workdir path = dir. of main scripts!
 WORKDIR_PATH = os.path.dirname(os.path.realpath(__file__)) + "/../"
 sys.path.insert(1, WORKDIR_PATH)
+
+from md_main import *
+from md_plot import *
+
+np.random.seed(42) #Fix random seed
 
 
 if __name__ == "__main__":

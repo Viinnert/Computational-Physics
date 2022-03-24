@@ -1,7 +1,5 @@
 import sys
 import os
-from md_main import *
-from md_plot import *
 import numpy as np
 
 np.random.seed(42) #Fix seed for reproducebility.
@@ -10,6 +8,8 @@ np.random.seed(42) #Fix seed for reproducebility.
 WORKDIR_PATH = os.path.dirname(os.path.realpath(__file__)) + "/../"
 sys.path.insert(1, WORKDIR_PATH)
 
+from md_main import *
+from md_plot import *
 
 def simple_init(size):
     i_pos = np.array([[0.3*size[0], 0.51 *size[1]],

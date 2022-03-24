@@ -537,7 +537,7 @@ class Simulation:
         '''
         # Calculate dimension-less pressure, i.e. in units sigma^3/k_B 
         epsilon = self.pot_args['epsilon'] #epsilon in dimension k_B
-        c_pressure = self.temp*self.density * (1 - (epsilon/(3*self.n_atoms*self.temp) * 1/2 * np.dot(ij_distances, ij_potential_gradient)  / self.n_atoms ))
+        c_pressure = self.temp*self.density * (1 - (1/(3*self.n_atoms*self.temp) * 1/2 * np.dot(ij_distances, ij_potential_gradient)))
 
         return c_pressure
 
@@ -601,10 +601,10 @@ class Simulation:
                 kin_energies, pot_energies, kin_energy_target = self.energies()
                 
                 # Rescale velocities if kinetic energy if too far from target
-                energy_tolerance = 0.04
-                check_interval = 9
+                energy_tolerance = 0.05
+                check_interval = 12
                 rescale_counter = 0
-                rescale_limit = 4
+                rescale_limit = 5
                 if self.init_mode == "random" or self.init_mode == "fcc":
                     if i % int(self.n_iterations / check_interval) == 0 and rescale_counter < rescale_limit:
                         lambda_ = (kin_energy_target/np.sum(kin_energies))**(1/2)

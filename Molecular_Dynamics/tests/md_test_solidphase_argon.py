@@ -1,15 +1,15 @@
 import sys
 import os
-from md_main import *
-from md_plot import *
 import numpy as np
 
-np.random.seed(42) #Fix seed for reproducebility.
+np.random.seed(0) #Fix seed for reproducebility.
 
 # Workdir path = dir. of main scripts!
 WORKDIR_PATH = os.path.dirname(os.path.realpath(__file__)) + "/../"
 sys.path.insert(1, WORKDIR_PATH)
 
+from md_main import *
+from md_plot import *
 
 if __name__ == "__main__":
     # Hardcoded inputs (Maybe replace with argv arguments)

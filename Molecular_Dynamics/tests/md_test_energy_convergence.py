@@ -1,33 +1,17 @@
 import sys
+from md_main import *
+from md_plot import *
 import os
+
+np.random.seed(42) #Fix random seed
 
 #Workdir path = dir. of main scripts!
 WORKDIR_PATH = os.path.dirname(os.path.realpath(__file__)) + "/../"
 sys.path.insert(1, WORKDIR_PATH)
 
-from md_main import *
-from md_plot import *
-
-np.random.seed(42) #Fix random seed
-
-def simple_init(size):
-    i_pos = np.array([[0.3*size[0], 0.51 *size[1]],
-                      [0.7*size[0], 0.49 *size[1]]])
-    i_veloc = np.array([[1, 0],
-                        [-1, 0]])
-
-    return i_pos, i_veloc
-
 
 if __name__ == "__main__":
-    #def print_usage():
-    #    print("Usage:\n", file=sys.stderr)
-    #    print("Check out usage in README, you gave the wrong number of arguments", file=sys.stderr)
-
-    #required_args = 0
-    #if len(sys.argv) != required_args:
-    #    print_usage()
-    
+   
     # Hardcoded inputs (Maybe replace with argv arguments)
     N_DIM = 3 # Number of dimensions
     N_ATOMS = 10
@@ -70,5 +54,3 @@ if __name__ == "__main__":
         plot_forces(data_file)
         
         animate_trajectories3D(data_file)
-        #plot_trajectories2D(data_file)
-        

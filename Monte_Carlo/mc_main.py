@@ -18,6 +18,7 @@ Functions:
 ################################################################################
 """
 
+from time import time
 import numpy as np
 import h5py as hdf
 import os
@@ -26,16 +27,28 @@ from sklearn import neighbors
 from sklearn.decomposition import LatentDirichletAllocation
 from tqdm import tqdm
 import timeit
+from numba import int64, float64
+from numba.experimental import jitclass
 
 
-def save_temp_sweep_results(sweep_output, data_file_path):
+def save_results(results, data_file_path):
     with hdf.File(data_file_path, "w") as datafile:
-        datafile['temperature'] = sweep_output['temperature']
-        datafile['energy'] = sweep_output['energy_per_temp']
-        datafile['magnetization'] = sweep_output['magnetization_per_temp']
-        datafile['specific_heat'] = sweep_output['specific_heat_per_temp']
-        datafile['susceptibility'] = sweep_output['susceptibility_per_temp']
+        for output_kind in results.keys():
+            datagroup = datafile.create_group(output_kind)
+            for key in  results[output_kind].keys():
+                datagroup.create_dataset(key, data=(results[output_kind])[key])
 
+class_spec = [
+    ('energy', float64),
+    ('magnetization', float64),
+    ('specific_heat', float64),
+    ('susceptibility', float64), 
+    ('computation_time', float64),
+    ('config', float64[:, :]),
+    ('lattice_size', int64)
+]
+
+#@jitclass(class_spec)
 class Ising2D_MC:
     '''
         Initializes the 2-D Ising model Monte Carlo simulation class
@@ -61,12 +74,12 @@ class Ising2D_MC:
         self.lattice_size = lattice_size
         self.config = np.zeros((lattice_size, lattice_size))
 
-    def initialstate(self, lattice_size):   
+    def initialstate(self):   
         """ 
         generates a random spin configuration for initial condition
         """
-        state = 2*np.random.randint(2, size=(lattice_size,lattice_size))-1
-        return state
+        self.config = 2*np.random.randint(2, size=(self.lattice_size,self.lattice_size))-1
+        #state = 2*np.random.randint(2, size=(self.lattice_size,self.lattice_size))-1
 
     def mcmove(self, config, beta):
         """
@@ -94,7 +107,6 @@ class Ising2D_MC:
             config[random_x, random_y] = random_spin
         return config
 
-
     def calc_energy(self, config):
         """
         Energy of a given configuration
@@ -110,7 +122,6 @@ class Ising2D_MC:
                 neighbor_spin_sum = config[(i+1)%self.lattice_size, j] + config[i,(j+1)%self.lattice_size] + config[(i-1)%self.lattice_size, j] + config[i,(j-1)%self.lattice_size]
                 energy += -neighbor_spin_sum*spin
         return energy/4.0 #Remove quadruple counting of spin-spin neighbor pair in 2D
-
 
     def calc_mag(self, config):
         """
@@ -128,22 +139,21 @@ class Ising2D_MC:
 
         #Calculate quantities after equilibriation
         output = {}
-        output['cum_energy'] = output['cum_energy_squared'] = 0
-        output['cum_mag'] = output['cum_mag_squared'] = 0
+        output['energy_per_time'], output['energy_squared_per_time'] = [], []
+        output['magnetization_per_time'], output['magnetization_squared_per_time'] = [], []
         
         for t in range(time_steps):
             self.config = self.mcmove(self.config, inv_temp) # Monte Carlo moves
 
             config_energy = self.calc_energy(self.config)     # calculate the energy in units J
             config_mag = self.calc_mag(self.config)        # calculate the magnetisation
-
-            output['cum_energy'] += config_energy                 #Cumulative energy 
-            output['cum_mag'] += config_mag
-            output['cum_mag_squared'] += config_mag*config_mag
-            output['cum_energy_squared'] += config_energy*config_energy
-        
-        return output
+            output['energy_per_time'].append(config_energy)   
+            output['magnetization_per_time'].append(config_mag)
+            output['energy_squared_per_time'].append(config_energy*config_energy)
+            output['magnetization_squared_per_time'].append(config_mag*config_mag)
             
+        return output
+    
     def __simulate_mc__(self, temp, equilib_steps=2**10, mc_steps=2**10):   
         """ 
         Insert docstring here
@@ -157,30 +167,40 @@ class Ising2D_MC:
 
         tic = timeit.default_timer() #Start to measure computation time
         
-        self.config = self.initialstate(self.lattice_size)
+        self.initialstate()
         
         inv_temp = 1.0 / temp 
         inv_temp_squared = inv_temp*inv_temp
 
         #Minimize energy + Equilibrate:
-        self.__time_sweep__(temp, equilib_steps)
+        equilib_output = self.__time_sweep__(temp, equilib_steps)
         
         #Sample around non-zero prob. equilibrium config:
         output = self.__time_sweep__(temp, mc_steps)
         
         #Weights for MC averages:
-        n1, n2  = 1.0/(mc_steps*self.lattice_size*1), 1.0/(mc_steps*mc_steps*self.lattice_size*1)  
+        n1, n2 = 1.0/(mc_steps*self.lattice_size*1), 1.0/(mc_steps*mc_steps*self.lattice_size*1)  
 
         #Calculate observable expectation values:
-        self.energy         = n1*output['cum_energy']   
-        self.magnetization  = n1*output['cum_mag']
-        self.specific_heat  = (n1*output['cum_energy_squared'] - n2*output['cum_energy']*output['cum_energy'])*inv_temp_squared
-        self.susceptibility = (n1*output['cum_mag_squared'] - n2*output['cum_mag']*output['cum_mag'])*inv_temp_squared
+        self.energy         = n1*np.sum(output['energy_per_time'])   
+        self.magnetization  = n1*np.sum(output['magnetization_per_time'])
+        self.specific_heat  = (n1*np.sum(output['energy_squared_per_time']) - n2*np.sum(output['energy_per_time'])*np.sum(output['energy_per_time']))*inv_temp_squared
+        self.susceptibility = (n1*np.sum(output['magnetization_squared_per_time']) - n2*np.sum(output['magnetization_per_time'])*np.sum(output['magnetization_per_time']))*inv_temp_squared
 
         toc=timeit.default_timer()
         self.computation_time = toc-tic
+        
+        output_dic_list = [equilib_output, output]
+        total_output = {}
+        for key in output.keys():
+            th = np.array([d[key] for d in output_dic_list]).flatten()
+            total_output[key] = th
+            
+        total_output['time'] = np.arange(0, equilib_steps+mc_steps)
+        total_output['temperature'] = temp
+        
+        return total_output
 
-    
     def __temp_sweep__(self, temp_min=1.5, temp_max=3.5,  n_temp_samples = 2**4, equilib_steps=2**10, mc_steps=2**10):
         '''
         Performs a temperature sweep over MC simulations for the defined Ising spin system. 
@@ -240,10 +260,23 @@ if __name__ == "__main__":
     DATA_PATH = WORKDIR_PATH + "/data/" 
     DATA_FILENAME = sys.argv[-1]
 
+    #Initialize and do single time sweep at fixed tempature
     mc_Ising_model = Ising2D_MC()
+    time_sweep_output = mc_Ising_model.__simulate_mc__(temp=4.0,
+                                                       equilib_steps=2**10, 
+                                                       mc_steps=2**10)
     
-    sweep_output = mc_Ising_model.__temp_sweep__()
-    save_temp_sweep_results(sweep_output, DATA_PATH + DATA_FILENAME)
+    #Reset and do temperature sweep
+    mc_Ising_model = Ising2D_MC()
+    temp_sweep_output = mc_Ising_model.__temp_sweep__(temp_min=1.5, 
+                                                      temp_max=3.5,  
+                                                      n_temp_samples = 2**4,
+                                                      equilib_steps=2**10, 
+                                                      mc_steps=2**10)
+    
+    results = {'time_sweep_output': time_sweep_output,
+               'temp_sweep_output': temp_sweep_output}
+    save_results(results, DATA_PATH + DATA_FILENAME)
     
     print("Success")
     

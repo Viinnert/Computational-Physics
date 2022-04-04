@@ -23,8 +23,8 @@ import numpy as np
 import h5py as hdf
 import os
 import sys
-from sklearn import neighbors
-from sklearn.decomposition import LatentDirichletAllocation
+#from sklearn import neighbors
+#from sklearn.decomposition import LatentDirichletAllocation
 from tqdm import tqdm
 import timeit
 from numba import int64, float64
@@ -340,8 +340,9 @@ if __name__ == "__main__":
         sys.exit()
 
     required_args = ["data filename"]
-    sys.argv = sys.argv[1:] #Remove default script path argument
-    
+    #sys.argv = sys.argv[1:] #Remove default script path argument
+    sys.argv = ["data.hdf5"]
+
     if len(sys.argv) != len(required_args):
         print_usage()
     
@@ -349,19 +350,28 @@ if __name__ == "__main__":
     DATA_PATH = WORKDIR_PATH + "/data/" 
     DATA_FILENAME = sys.argv[-1]
 
-    #Initialize and do single time sweep at fixed tempature
+    # set variables
+    temp = 2.2
+    equilib_steps = 2**10
+    mc_steps = 2**10
+
+    temp_min = 1.5
+    temp_max = 3.5
+    n_temp_samples = 2**10
+
+    #Initialize and do single time sweep at fixed temperature
     mc_Ising_model = Ising2D_MC()
-    time_sweep_output = mc_Ising_model.__simulate_mc__(temp=2.2,
-                                                       equilib_steps=2**10, 
-                                                       mc_steps=2**10)
+    time_sweep_output = mc_Ising_model.__simulate_mc__(temp=temp,
+                                                       equilib_steps=equilib_steps, 
+                                                       mc_steps=mc_steps)
     
     #Reset and do temperature sweep
     mc_Ising_model = Ising2D_MC()
-    temp_sweep_output = mc_Ising_model.__temp_sweep__(temp_min=1.5, 
-                                                      temp_max=3.5,  
-                                                      n_temp_samples = 2**4,
-                                                      equilib_steps=2**10, 
-                                                      mc_steps=2**10)
+    temp_sweep_output = mc_Ising_model.__temp_sweep__(temp_min=temp_min, 
+                                                      temp_max=temp_max,
+                                                      equilib_steps=equilib_steps, 
+                                                      n_temp_samples=n_temp_samples,
+                                                      mc_steps=mc_steps)
     
     results = {'time_sweep_output': time_sweep_output,
                'temp_sweep_output': temp_sweep_output}

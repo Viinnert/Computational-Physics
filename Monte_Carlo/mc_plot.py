@@ -87,6 +87,13 @@ def plot_expectation_vs_temp(data_file_path):
 
         plt.show()
 
+
+def plot_correlation(data_file_path):
+
+    with hdf.File(data_file_path, "r") as datafile:
+        data = datafile['time_sweep_output']
+        print(data.keys())
+
 if __name__ == "__main__":
     def print_usage():
         print("You gave the wrong number of arguments for mc_plot \n", file=sys.stderr)
@@ -95,7 +102,9 @@ if __name__ == "__main__":
         sys.exit()
 
     required_args = ["data filename"]
-    sys.argv = sys.argv[1:] #Remove default script path argument
+    #sys.argv = sys.argv[1:] #Remove default script path argument
+    sys.argv = ["data.hdf5"]
+    
     if len(sys.argv) != len(required_args):
         print_usage()
     
@@ -103,9 +112,10 @@ if __name__ == "__main__":
     DATA_PATH = WORKDIR_PATH + "/data/" 
     DATA_FILENAME = sys.argv[-1]
 
-    plot_expectation_vs_time(DATA_PATH + DATA_FILENAME)
-    plot_expectation_vs_temp(DATA_PATH + DATA_FILENAME)
-    
+    #plot_expectation_vs_time(DATA_PATH + DATA_FILENAME)
+    #plot_expectation_vs_temp(DATA_PATH + DATA_FILENAME)
+    plot_correlation(DATA_PATH + DATA_FILENAME)
+
     print("Success")
     
 

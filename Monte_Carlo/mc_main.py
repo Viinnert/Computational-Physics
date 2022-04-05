@@ -317,6 +317,7 @@ class Ising2D_MC:
         sweep_output['magnetization_per_temp']  = np.zeros(n_temp_samples)
         sweep_output['specific_heat_per_temp'] = np.zeros(n_temp_samples)
         sweep_output['susceptibility_per_temp'] = np.zeros(n_temp_samples)
+        sweep_output['correlation_time_per_temp'] = np.zeros(n_temp_samples)
 
         #m is the temperature index
         for m in tqdm(range(len(temp_array))): 

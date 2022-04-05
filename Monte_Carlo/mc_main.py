@@ -257,7 +257,6 @@ class Ising2D_MC:
         corr_time_output, corr_calc_steps = self.__time_sweep__(temp, stop_crit)
         self.correlation_time = self.get_correlation_time(corr_time_output['correlation_per_time'])
         
-        
         #Sample around non-zero prob. equilibrium config / actual mc sampling:
         output = self.__time_sweep__(temp, mc_steps)
         
@@ -268,11 +267,12 @@ class Ising2D_MC:
         self.correlation = corr_time_output['correlation_per_time']
         self.energy         = n1*np.sum(output['energy_per_time'])   
         self.magnetization  = n1*np.sum(output['magnetization_per_time'])
+
         #CHANGE FOLLOWING AVERAGES TO BLOCK-WISE AVERAGES + CALC STD. DEVIATIONS BASED ON TAU FROM ABOVE!
         self.specific_heat  = (n1*np.sum(output['energy_squared_per_time']) - n2*np.sum(output['energy_per_time'])*np.sum(output['energy_per_time']))*inv_temp_squared
         self.susceptibility = (n1*np.sum(output['magnetization_squared_per_time']) - n2*np.sum(output['magnetization_per_time'])*np.sum(output['magnetization_per_time']))*inv_temp_squared
 
-        toc=timeit.default_timer()
+        toc = timeit.default_timer()
         self.computation_time = toc-tic
         
         #Combine outputs into one:
@@ -357,7 +357,7 @@ if __name__ == "__main__":
 
     temp_min = 1.5
     temp_max = 3.5
-    n_temp_samples = 2**10
+    n_temp_samples = 2**4
 
     #Initialize and do single time sweep at fixed temperature
     mc_Ising_model = Ising2D_MC()
@@ -376,6 +376,6 @@ if __name__ == "__main__":
     results = {'time_sweep_output': time_sweep_output,
                'temp_sweep_output': temp_sweep_output}
     save_results(results, DATA_PATH + DATA_FILENAME)
-    
+
     print("Success")
     

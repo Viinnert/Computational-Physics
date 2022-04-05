@@ -91,8 +91,8 @@ def plot_expectation_vs_temp(data_file_path):
 def plot_correlation(data_file_path):
 
     with hdf.File(data_file_path, "r") as datafile:
-        data = datafile['time_sweep_output']
-        print(data.keys())
+        data = datafile['time_sweep_output']['time']
+        print(data)
 
 if __name__ == "__main__":
     def print_usage():

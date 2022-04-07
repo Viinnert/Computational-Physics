@@ -179,7 +179,7 @@ class Ising2D_MC:
         excessive_times = len(energies) % block_size
         energies = energies[excessive_times:]
 
-        n_blocks = len(energies) / block_size
+        n_blocks = int( len(energies) / block_size )
         energies = np.reshape(energies, (n_blocks, block_size))
 
         specific_heats = np.mean(energies**2, axis=1) - np.mean(energies, axis=1)**2
@@ -197,7 +197,7 @@ class Ising2D_MC:
         excessive_times = len(magnetizations) % block_size
         magnetizations = magnetizations[excessive_times:]
 
-        n_blocks = len(magnetizations) / block_size
+        n_blocks = int( len(magnetizations) / block_size )
         magnetizations = np.reshape(magnetizations, (n_blocks, block_size))
 
         susceptibilities = np.mean(magnetizations**2, axis=1) - np.mean(magnetizations, axis=1)**2
@@ -218,8 +218,8 @@ class Ising2D_MC:
 
         #Calculate quantities after equilibriation
         output = {}
-        output['energy_per_time'], output['energy_squared_per_time'] = [], []
-        output['magnetization_per_time'], output['magnetization_squared_per_time'] = [], []
+        output['energy_per_time'], output['energy_squared_per_time'] = np.array([]), np.array([])
+        output['magnetization_per_time'], output['magnetization_squared_per_time'] = np.array([]), np.array([])
         output['correlation_per_time'] = np.array([np.nan])
         
         if isinstance(time_steps_or_stop_crit, int):
@@ -227,16 +227,16 @@ class Ising2D_MC:
             for t in range(time_steps):
                 self.config = self.mcmove(self.config, inv_temp) # Monte Carlo moves
 
-                config_energy = self.get_energy(self.config)     # calculate the energy in units J
-                config_mag = self.get_mag(self.config)        # calculate the magnetisation
+                config_energy = self.get_energy(self.config) # calculate the energy in units J
+                config_mag = self.get_mag(self.config) # calculate the magnetisation
 
-                output['energy_per_time'].append(config_energy)   
-                output['magnetization_per_time'].append(config_mag)
-                output['energy_squared_per_time'].append(config_energy*config_energy)
-                output['magnetization_squared_per_time'].append(config_mag*config_mag)
+                output['energy_per_time'] = np.append(output['energy_per_time'], config_energy)   
+                output['magnetization_per_time'] = np.append(output['magnetization_per_time'], config_mag)
+                output['energy_squared_per_time'] = np.append(output['energy_squared_per_time'], config_energy**2)
+                output['magnetization_squared_per_time'] = np.append(output['magnetization_squared_per_time'], config_mag**2)
             
-            #Only calculate correlation function after last step:
-            config_corr = self.get_correlations(np.array(output['magnetization_per_time']))
+            # Only calculate correlation function after last step:
+            config_corr = self.get_correlations(output['magnetization_per_time'])
             output['correlation_per_time'] = config_corr #Update refined+extended correlation function
             return output
         
@@ -248,16 +248,17 @@ class Ising2D_MC:
                 
                 self.config = self.mcmove(self.config, inv_temp) # Monte Carlo moves
 
-                config_energy = self.get_energy(self.config)     # calculate the energy in units J
-                config_mag = self.get_mag(self.config)        # calculate the magnetization
-                output['energy_per_time'].append(config_energy)   
-                output['magnetization_per_time'].append(config_mag)
-                output['energy_squared_per_time'].append(config_energy*config_energy)
-                output['magnetization_squared_per_time'].append(config_mag*config_mag)
+                config_energy = self.get_energy(self.config) # calculate the energy in units J
+                config_mag = self.get_mag(self.config) # calculate the magnetization
+
+                output['energy_per_time'] = np.append(output['energy_per_time'], config_energy)   
+                output['magnetization_per_time'] = np.append(output['magnetization_per_time'], config_mag)
+                output['energy_squared_per_time'] = np.append(output['energy_squared_per_time'], config_energy**2)
+                output['magnetization_squared_per_time'] = np.append(output['magnetization_squared_per_time'], config_mag**2)
                       
                 if corr_calc_steps > 1: 
                     #Calculate correlation to check for integration bound chi(t) < 0
-                    config_corr = self.get_correlations(np.array(output['magnetization_per_time']) / (self.lattice_size**2))
+                    config_corr = self.get_correlations(output['magnetization_per_time'] / (self.lattice_size**2))
                     output['correlation_per_time'] = config_corr #Update refined+extended correlation function  
                     print(f"Correlation {config_corr[-1]} in computation step {corr_calc_steps}")
                     print(f"computed with magnetization {config_mag}")    
@@ -281,23 +282,18 @@ class Ising2D_MC:
         tic = timeit.default_timer() #Start to measure computation time
         
         self.initialstate()
-        
-        inv_temp = 1.0 / temp 
-        inv_temp_squared = inv_temp*inv_temp
 
         #Minimize energy + Equilibrate:
         equilib_output = self.__time_sweep__(temp, equilib_steps)
         
         #Measure correlation time:
         stop_crit = lambda output: bool(output['correlation_per_time'][-1] < -0.01)
+        stop_crit = lambda output: True
         corr_time_output, corr_calc_steps = self.__time_sweep__(temp, stop_crit)
         self.correlation_time = self.get_correlation_time(corr_time_output['correlation_per_time'])
         
         #Sample around non-zero prob. equilibrium config / actual mc sampling:
         output = self.__time_sweep__(temp, mc_steps)
-        
-        #Weights for MC regular and squared average:
-        n1, n2 = 1.0/(mc_steps*self.lattice_size*1), 1.0/(mc_steps*mc_steps*self.lattice_size*1)  
 
         #Calculate observable expectation values:
         self.correlation = corr_time_output['correlation_per_time']
@@ -305,8 +301,8 @@ class Ising2D_MC:
                        'std': np.std( output['energy_per_time'] / self.lattice_size**2 )}
         self.magnetization = {'mean': np.mean( output['magnetization_per_time'] / self.lattice_size**2 ), 
                               'std': np.std( output['magnetization_per_time'] / self.lattice_size**2 )}
-        self.susceptibility = get_susceptibility(output['magnetization_per_time'], temp) 
-        self.specific_heat = get_specific_heat(output['energy_per_time'], temp)
+        self.susceptibility = self.get_susceptibility(output['magnetization_per_time'], temp) 
+        self.specific_heat = self.get_specific_heat(output['energy_per_time'], temp)
 
         toc = timeit.default_timer()
         self.computation_time = toc-tic
@@ -398,7 +394,7 @@ if __name__ == "__main__":
 
     temp_min = 1.5
     temp_max = 3.5
-    n_temp_samples = 2**4
+    n_temp_samples = 2**0
 
     #Initialize and do single time sweep at fixed temperature
     mc_Ising_model = Ising2D_MC()

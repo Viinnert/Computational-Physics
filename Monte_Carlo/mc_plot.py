@@ -29,61 +29,82 @@ def plot_expectation_vs_time(data_file_path):
     """
     Insert docstring
     """
-    output_kind = 'time_sweep_output'
     with hdf.File(data_file_path, "r") as datafile:
-        data = datafile[output_kind]
+        data = datafile['time_sweep_output']
+        times = np.array(data['time'])
+        energies = np.array(data['energy_per_time'])
+        magnetizations = np.array(data['magnetization_per_time'])
         
-        fig = plt.figure(figsize=(18, 10)); # plot the calculated values    
+        fig = plt.figure(figsize=(18, 10))
 
-        print(np.array(data['time']), np.array(data['energy_per_time']))
-        sp =  fig.add_subplot(2, 1, 1 );
-        plt.plot(np.array(data['time']), np.array(data['energy_per_time']), 'o', color='RoyalBlue')
-        average_window_size = int(np.array(data['time']).shape[0] / 12)
-        running_mean_energy = np.convolve(np.array(data['energy_per_time']), np.ones(average_window_size)/average_window_size, mode='valid')
-        plt.plot(np.array(data['time'])[average_window_size-1:], running_mean_energy, '.', color='red' , label="Mean")
-        plt.xlabel(r"Time$", fontsize=20);
-        plt.ylabel(r"Energy ($J$)", fontsize=20);         plt.axis('tight');
+        sp =  fig.add_subplot(2, 1, 1 )
 
-        sp =  fig.add_subplot(2, 1, 2 );
-        plt.plot(np.array(data['time']), np.array(data['magnetization_per_time']), 'o', color='RoyalBlue')
-        average_window_size = int(np.array(data['time']).shape[0] / 12)
-        running_mean_mag = np.convolve(np.array(data['magnetization_per_time']), np.ones(average_window_size)/average_window_size, mode='valid')
-        plt.plot(np.array(data['time'])[average_window_size-1:], running_mean_mag, '.', color='red' , label="Mean")
+        average_window_size = int(times.shape[0] / 12)
+        running_mean_energy = np.convolve(energies, np.ones(average_window_size)/average_window_size, mode='valid')
+
+        plt.plot(times, energies, 'o', color='RoyalBlue')
+        plt.plot(times[average_window_size-1:], running_mean_energy, '.', color='red' , label="Mean")
+
+        plt.xlabel(r"Time$", fontsize=20)
+        plt.ylabel(r"Energy ($J$)", fontsize=20)
+        plt.axis('tight')
+
+        sp =  fig.add_subplot(2, 1, 2 )
+
+        average_window_size = int(times.shape[0] / 12)
+        running_mean_mag = np.convolve(magnetizations, np.ones(average_window_size)/average_window_size, mode='valid')
+
+        plt.plot(times, magnetizations, 'o', color='RoyalBlue')
+        plt.plot(times[average_window_size-1:], running_mean_mag, '.', color='red' , label="Mean")
+
         plt.xlabel(r"Time", fontsize=20); 
-        plt.ylabel(r"Magnetization $M$", fontsize=20);   plt.axis('tight');
+        plt.ylabel(r"Magnetization $M$", fontsize=20);   plt.axis('tight')
         
-        fig.suptitle("Expectation convergence for T={}".format(data['temperature']))
+        fig.suptitle(f"Expectation convergence for T={data['temperature']}")
+
         plt.show()
     
 def plot_expectation_vs_temp(data_file_path):
     """
     Insert docstring
     """
-    output_kind = 'temp_sweep_output'
     with hdf.File(data_file_path, "r") as datafile:
-        data = datafile[output_kind]
+        data = datafile['temp_sweep_output']
+        temperatures = np.array(data['temperature'])
+        energy_per_temp = np.array(data['energy_per_temp'])
+        magnetization_per_temp = abs(np.array(data['magnetization_per_temp']))
+        specific_heat_per_temp = np.array(data['specific_heat_per_temp'])
+        susceptibility_per_temp = np.array(data['susceptibility_per_temp'])
         
         fig = plt.figure(figsize=(18, 10)); # plot the calculated values    
 
-        sp =  fig.add_subplot(2, 2, 1 );
-        plt.plot(np.array(data['temperature']), np.array(data['energy_per_temp']), 'o', color='RoyalBlue')
-        plt.xlabel(r"Temperature $(J/k_B)$", fontsize=20);
-        plt.ylabel(r"Energy ($J$)", fontsize=20);         plt.axis('tight');
+        sp =  fig.add_subplot(2, 2, 1 )
+        plt.errorbar(temperatures, energy_per_temp, yerr=np.std(energy_per_temp), 
+                     fmt='o', color='RoyalBlue', ecolor='black', capsize=4)
+        plt.xlabel(r"Temperature $(J/k_B)$", fontsize=20)
+        plt.ylabel(r"Energy ($J$)", fontsize=20)
+        plt.axis('tight')
 
-        sp =  fig.add_subplot(2, 2, 2 );
-        plt.plot(np.array(data['temperature']), abs(np.array(data['magnetization_per_temp'])), 'o', color='RoyalBlue')
-        plt.xlabel(r"Temperature $(J/k_B)$", fontsize=20); 
-        plt.ylabel(r"Magnetization $M$", fontsize=20);   plt.axis('tight');
+        sp =  fig.add_subplot(2, 2, 2 )
+        plt.errorbar(temperatures, magnetization_per_temp, yerr=np.std(magnetization_per_temp), 
+                     fmt='o', color='RoyalBlue', ecolor='black', capsize=4)
+        plt.xlabel(r"Temperature $(J/k_B)$", fontsize=20)
+        plt.ylabel(r"Magnetization $M$", fontsize=20)
+        plt.axis('tight')
 
-        sp =  fig.add_subplot(2, 2, 3 );
-        plt.plot(np.array(data['temperature']), np.array(data['specific_heat_per_temp']), 'o', color='RoyalBlue')
-        plt.xlabel(r"Temperature $(J/k_B)$", fontsize=20);  
-        plt.ylabel(r"Specific Heat $C_v$", fontsize=20);   plt.axis('tight');   
+        sp =  fig.add_subplot(2, 2, 3 )
+        plt.errorbar(temperatures, specific_heat_per_temp, yerr=np.std(specific_heat_per_temp), 
+                     fmt='o', color='RoyalBlue', ecolor='black', capsize=4)
+        plt.xlabel(r"Temperature $(J/k_B)$", fontsize=20)
+        plt.ylabel(r"Specific Heat $C_v$", fontsize=20)
+        plt.axis('tight')
 
-        sp =  fig.add_subplot(2, 2, 4 );
-        plt.plot(np.array(data['temperature']), np.array(data['susceptibility_per_temp']), 'o', color='RoyalBlue')
-        plt.xlabel(r"Temperature $(J/k_B)$", fontsize=20); 
-        plt.ylabel(r"Susceptibility $\chi$", fontsize=20);   plt.axis('tight');
+        sp =  fig.add_subplot(2, 2, 4 )
+        plt.errorbar(temperatures, susceptibility_per_temp, yerr=np.std(susceptibility_per_temp), 
+                     fmt='o', color='RoyalBlue', ecolor='black', capsize=4)
+        plt.xlabel(r"Temperature $(J/k_B)$", fontsize=20)
+        plt.ylabel(r"Susceptibility $\chi$", fontsize=20)
+        plt.axis('tight')
 
         plt.show()
 
@@ -112,9 +133,9 @@ if __name__ == "__main__":
     DATA_PATH = WORKDIR_PATH + "/data/" 
     DATA_FILENAME = sys.argv[-1]
 
-    #plot_expectation_vs_time(DATA_PATH + DATA_FILENAME)
-    #plot_expectation_vs_temp(DATA_PATH + DATA_FILENAME)
-    plot_correlation(DATA_PATH + DATA_FILENAME)
+    plot_expectation_vs_time(DATA_PATH + DATA_FILENAME)
+    plot_expectation_vs_temp(DATA_PATH + DATA_FILENAME)
+    #plot_correlation(DATA_PATH + DATA_FILENAME)
 
     print("Success")
     

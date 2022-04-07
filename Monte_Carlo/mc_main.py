@@ -171,6 +171,42 @@ class Ising2D_MC:
         Returns the correlation time after system equilibriation
         """ 
         return np.sum(correlations)/correlations[0]
+
+    def get_specific_heat(self, energies, temp, block_size=16):
+        energies = np.array(energies)
+        specific_heat = {}
+
+        excessive_times = len(energies) % block_size
+        energies = energies[excessive_times:]
+
+        n_blocks = len(energies) / block_size
+        energies = np.reshape(energies, (n_blocks, block_size))
+
+        specific_heats = np.mean(energies**2, axis=1) - np.mean(energies, axis=1)**2
+        specific_heats /= (temp * self.lattice_size**2)
+
+        specific_heat['mean'] = np.mean(specific_heats)
+        specific_heat['std'] = np.std(specific_heats)
+
+        return specific_heat
+
+    def get_susceptibility(self, magnetizations, temp, block_size=16):
+        magnetizations = np.array(magnetizations)
+        susceptibility = {}
+
+        excessive_times = len(magnetizations) % block_size
+        magnetizations = magnetizations[excessive_times:]
+
+        n_blocks = len(magnetizations) / block_size
+        magnetizations = np.reshape(magnetizations, (n_blocks, block_size))
+
+        susceptibilities = np.mean(magnetizations**2, axis=1) - np.mean(magnetizations, axis=1)**2
+        susceptibilities /= (temp * self.lattice_size**2)
+
+        susceptibility['mean'] = np.mean(susceptibilities)
+        susceptibility['std'] = np.std(susceptibilities)
+
+        return susceptibility
     
     def __time_sweep__(self, temp, time_steps_or_stop_crit):
         """ 
@@ -264,13 +300,15 @@ class Ising2D_MC:
         n1, n2 = 1.0/(mc_steps*self.lattice_size*1), 1.0/(mc_steps*mc_steps*self.lattice_size*1)  
 
         #Calculate observable expectation values:
-        self.correlation = corr_time_output['correlation_per_time']
+        self.correlation    = corr_time_output['correlation_per_time']
         self.energy         = n1*np.sum(output['energy_per_time'])   
         self.magnetization  = n1*np.sum(output['magnetization_per_time'])
 
         #CHANGE FOLLOWING AVERAGES TO BLOCK-WISE AVERAGES + CALC STD. DEVIATIONS BASED ON TAU FROM ABOVE!
-        self.specific_heat  = (n1*np.sum(output['energy_squared_per_time']) - n2*np.sum(output['energy_per_time'])*np.sum(output['energy_per_time']))*inv_temp_squared
-        self.susceptibility = (n1*np.sum(output['magnetization_squared_per_time']) - n2*np.sum(output['magnetization_per_time'])*np.sum(output['magnetization_per_time']))*inv_temp_squared
+        #self.specific_heat  = (n1*np.sum(output['energy_squared_per_time']) - n2*np.sum(output['energy_per_time'])*np.sum(output['energy_per_time']))*inv_temp_squared
+        #self.susceptibility = (n1*np.sum(output['magnetization_squared_per_time']) - n2*np.sum(output['magnetization_per_time'])*np.sum(output['magnetization_per_time']))*inv_temp_squared
+        self.susceptibility = get_susceptibility(output['magnetization_per_time'], temp) 
+        self.specific_heat = get_specific_heat(output['energy_per_time'], temp)
 
         toc = timeit.default_timer()
         self.computation_time = toc-tic

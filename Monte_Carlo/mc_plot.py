@@ -34,14 +34,14 @@ def plot_expectation_vs_time(data_file_path):
         times = np.array(data['time'])
         energies = np.array(data['energy_per_time'])
         magnetizations = np.array(data['magnetization_per_time'])
-        
-        fig = plt.figure(figsize=(18, 10))
-
-        sp =  fig.add_subplot(2, 1, 1 )
 
         average_window_size = int(times.shape[0] / 12)
         running_mean_energy = np.convolve(energies, np.ones(average_window_size)/average_window_size, mode='valid')
+        running_mean_mag = np.convolve(magnetizations, np.ones(average_window_size)/average_window_size, mode='valid')
 
+        fig = plt.figure(figsize=(18, 10))
+
+        sp =  fig.add_subplot(2, 1, 1 )
         plt.plot(times, energies, 'o', color='RoyalBlue')
         plt.plot(times[average_window_size-1:], running_mean_energy, '.', color='red' , label="Mean")
 
@@ -50,18 +50,14 @@ def plot_expectation_vs_time(data_file_path):
         plt.axis('tight')
 
         sp =  fig.add_subplot(2, 1, 2 )
-
-        average_window_size = int(times.shape[0] / 12)
-        running_mean_mag = np.convolve(magnetizations, np.ones(average_window_size)/average_window_size, mode='valid')
-
         plt.plot(times, magnetizations, 'o', color='RoyalBlue')
         plt.plot(times[average_window_size-1:], running_mean_mag, '.', color='red' , label="Mean")
 
-        plt.xlabel(r"Time", fontsize=20); 
-        plt.ylabel(r"Magnetization $M$", fontsize=20);   plt.axis('tight')
+        plt.xlabel(r"Time", fontsize=20)
+        plt.ylabel(r"Magnetization $M$", fontsize=20)
+        plt.axis('tight')
         
         fig.suptitle(f"Expectation convergence for T={data['temperature']}")
-
         plt.show()
     
 def plot_expectation_vs_temp(data_file_path):

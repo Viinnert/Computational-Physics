@@ -300,13 +300,11 @@ class Ising2D_MC:
         n1, n2 = 1.0/(mc_steps*self.lattice_size*1), 1.0/(mc_steps*mc_steps*self.lattice_size*1)  
 
         #Calculate observable expectation values:
-        self.correlation    = corr_time_output['correlation_per_time']
-        self.energy         = n1*np.sum(output['energy_per_time'])   
-        self.magnetization  = n1*np.sum(output['magnetization_per_time'])
-
-        #CHANGE FOLLOWING AVERAGES TO BLOCK-WISE AVERAGES + CALC STD. DEVIATIONS BASED ON TAU FROM ABOVE!
-        #self.specific_heat  = (n1*np.sum(output['energy_squared_per_time']) - n2*np.sum(output['energy_per_time'])*np.sum(output['energy_per_time']))*inv_temp_squared
-        #self.susceptibility = (n1*np.sum(output['magnetization_squared_per_time']) - n2*np.sum(output['magnetization_per_time'])*np.sum(output['magnetization_per_time']))*inv_temp_squared
+        self.correlation = corr_time_output['correlation_per_time']
+        self.energy = {'mean': np.mean( output['energy_per_time'] / self.lattice_size**2 ), 
+                       'std': np.std( output['energy_per_time'] / self.lattice_size**2 )}
+        self.magnetization = {'mean': np.mean( output['magnetization_per_time'] / self.lattice_size**2 ), 
+                              'std': np.std( output['magnetization_per_time'] / self.lattice_size**2 )}
         self.susceptibility = get_susceptibility(output['magnetization_per_time'], temp) 
         self.specific_heat = get_specific_heat(output['energy_per_time'], temp)
 
@@ -351,20 +349,24 @@ class Ising2D_MC:
         #tm is the transition temperature
         sweep_output = {}
         sweep_output['temperature'] = temp_array
-        sweep_output['energy_per_temp']       = np.zeros(n_temp_samples)
-        sweep_output['magnetization_per_temp']  = np.zeros(n_temp_samples)
-        sweep_output['specific_heat_per_temp'] = np.zeros(n_temp_samples)
-        sweep_output['susceptibility_per_temp'] = np.zeros(n_temp_samples)
+        sweep_output['energy_per_temp'] = {'mean': np.zeros(n_temp_samples), 'std': np.zeros(n_temp_samples)}
+        sweep_output['magnetization_per_temp'] = {'mean': np.zeros(n_temp_samples), 'std': np.zeros(n_temp_samples)}
+        sweep_output['specific_heat_per_temp'] = {'mean': np.zeros(n_temp_samples), 'std': np.zeros(n_temp_samples)}
+        sweep_output['susceptibility_per_temp'] = {'mean': np.zeros(n_temp_samples), 'std': np.zeros(n_temp_samples)}
         sweep_output['correlation_time_per_temp'] = np.zeros(n_temp_samples)
 
         #m is the temperature index
         for m in tqdm(range(len(temp_array))): 
             self.__simulate_mc__(temp_array[m], equilib_steps, mc_steps)
         
-            sweep_output['energy_per_temp'][m]         = self.energy
-            sweep_output['magnetization_per_temp'][m]  = self.magnetization
-            sweep_output['specific_heat_per_temp'][m]  = self.specific_heat
-            sweep_output['susceptibility_per_temp'][m] = self.susceptibility
+            sweep_output['energy_per_temp']['mean'][m] = self.energy['mean']
+            sweep_output['energy_per_temp']['std'][m] = self.energy['std']
+            sweep_output['magnetization_per_temp']['mean'][m] = self.magnetization['mean']
+            sweep_output['magnetization_per_temp']['std'][m] = self.magnetization['std']
+            sweep_output['specific_heat_per_temp']['mean'][m] = self.specific_heat['mean']
+            sweep_output['specific_heat_per_temp']['std'][m] = self.specific_heat['std']
+            sweep_output['susceptibility_per_temp']['mean'][m] = self.susceptibility['mean']
+            sweep_output['susceptibility_per_temp']['std'][m] = self.susceptibility['std']
             sweep_output['correlation_time_per_temp'][m] = self.correlation_time
             
         return sweep_output

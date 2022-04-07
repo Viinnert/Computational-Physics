@@ -66,37 +66,37 @@ def plot_expectation_vs_temp(data_file_path):
     """
     with hdf.File(data_file_path, "r") as datafile:
         data = datafile['temp_sweep_output']
-        temperatures = np.array(data['temperature'])
-        energy_per_temp = np.array(data['energy_per_temp'])
-        magnetization_per_temp = abs(np.array(data['magnetization_per_temp']))
-        specific_heat_per_temp = np.array(data['specific_heat_per_temp'])
-        susceptibility_per_temp = np.array(data['susceptibility_per_temp'])
+        temperatures = data['temperature']
+        energy_per_temp = data['energy_per_temp']
+        magnetization_per_temp = data['magnetization_per_temp']
+        specific_heat_per_temp = data['specific_heat_per_temp']
+        susceptibility_per_temp = data['susceptibility_per_temp']
         
         fig = plt.figure(figsize=(18, 10)); # plot the calculated values    
 
         sp =  fig.add_subplot(2, 2, 1 )
-        plt.errorbar(temperatures, energy_per_temp, yerr=np.std(energy_per_temp), 
+        plt.errorbar(temperatures, energy_per_temp['mean'], yerr=energy_per_temp['std'], 
                      fmt='o', color='RoyalBlue', ecolor='black', capsize=4)
         plt.xlabel(r"Temperature $(J/k_B)$", fontsize=20)
         plt.ylabel(r"Energy ($J$)", fontsize=20)
         plt.axis('tight')
 
         sp =  fig.add_subplot(2, 2, 2 )
-        plt.errorbar(temperatures, magnetization_per_temp, yerr=np.std(magnetization_per_temp), 
+        plt.errorbar(temperatures, magnetization_per_temp['mean'], yerr=magnetization_per_temp['std'], 
                      fmt='o', color='RoyalBlue', ecolor='black', capsize=4)
         plt.xlabel(r"Temperature $(J/k_B)$", fontsize=20)
         plt.ylabel(r"Magnetization $M$", fontsize=20)
         plt.axis('tight')
 
         sp =  fig.add_subplot(2, 2, 3 )
-        plt.errorbar(temperatures, specific_heat_per_temp, yerr=np.std(specific_heat_per_temp), 
+        plt.errorbar(temperatures, specific_heat_per_temp['mean'], yerr=specific_heat_per_temp['std'], 
                      fmt='o', color='RoyalBlue', ecolor='black', capsize=4)
         plt.xlabel(r"Temperature $(J/k_B)$", fontsize=20)
         plt.ylabel(r"Specific Heat $C_v$", fontsize=20)
         plt.axis('tight')
 
         sp =  fig.add_subplot(2, 2, 4 )
-        plt.errorbar(temperatures, susceptibility_per_temp, yerr=np.std(susceptibility_per_temp), 
+        plt.errorbar(temperatures, susceptibility_per_temp['mean'], yerr=susceptibility_per_temp['std'], 
                      fmt='o', color='RoyalBlue', ecolor='black', capsize=4)
         plt.xlabel(r"Temperature $(J/k_B)$", fontsize=20)
         plt.ylabel(r"Susceptibility $\chi$", fontsize=20)

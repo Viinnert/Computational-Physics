@@ -64,7 +64,10 @@ def plot_expectation_vs_time(data_file_path):
         
         corr_fig = plt.figure(figsize=(18, 10)); # plot the correlation function vs. time retard
         
-        plt.plot(times[:-3], np.array(data['correlation_per_time']),marker='o', color='RoyalBlue')
+        correlations = np.array(data['correlation_per_time'])
+        time_differences = np.arange(0, correlations.shape[0])
+        
+        plt.plot(time_differences, correlations,marker='o', color='RoyalBlue')
         plt.xlabel(r"Time difference", fontsize=20)
         plt.ylabel(r"Correlation", fontsize=20)
         plt.axis('tight')

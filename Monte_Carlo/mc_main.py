@@ -20,7 +20,7 @@ Functions:
 
 from cmath import e
 from statistics import correlation
-from time import time
+from time import sleep, time
 import numpy as np
 import h5py as hdf
 import os
@@ -89,6 +89,7 @@ class Ising2D_MC:
         generates a random spin configuration for initial condition
         """
         self.config = 2*np.random.randint(2, size=(self.lattice_size,self.lattice_size))-1
+        self.config = np.ones((self.lattice_size,self.lattice_size))
         #state = 2*np.random.randint(2, size=(self.lattice_size,self.lattice_size))-1
 
     def mcmove(self, config, beta):
@@ -108,6 +109,7 @@ class Ising2D_MC:
             neighbor_spin_sum = config[(random_x+1)%self.lattice_size, random_y] + config[random_x,(random_y+1)%self.lattice_size] + config[(random_x-1)%self.lattice_size, random_y] + config[random_x,(random_y-1)%self.lattice_size]
             
             #Flipping cost only depends on local energy change:
+            #Negative sign in energy expression and spin flip cancel
             cost = 2*random_spin*neighbor_spin_sum #Factor 2: Each spin pair should occur twice in energy sum
             
             if cost < 0:
@@ -139,6 +141,7 @@ class Ising2D_MC:
         """    
         return np.sum(config)
     
+     
     def get_correlations(self, mag_per_time):
         tmax = mag_per_time.shape[0]
         
@@ -149,19 +152,19 @@ class Ising2D_MC:
         #Create an array with each collumn = all valid values of t_prime for specific t
         t_prime_array =  np.flip(np.triu(np.tile(t_array, (t_array.shape[0], 1)).T, k=0), axis=1)
         
-        norm_array = 1/(tmax - t_array)
+        norm_array = 1/(tmax - t_array - 1)
         
         #Retarded time = add to each t_prime array (collumn) the corresponding t value
         retard_idx = (t_prime_array + t_array[np.newaxis, :])#.flatten()
         non_retard_idx = t_prime_array#.flatten()
-
+        
         mag_retard = mag_per_time[retard_idx]
         mag_non_retard = mag_per_time[non_retard_idx]
         
         zero_indices = np.tril_indices(retard_idx.shape[0], k=-1) #Mask for resetting zero sum terms
         (mag_retard[:, ::-1])[zero_indices] = 0
         (mag_non_retard[:, ::-1])[zero_indices] = 0
-        
+          
         mag_squared = mag_non_retard * mag_retard
         
         #print(mag_retard)
@@ -169,10 +172,29 @@ class Ising2D_MC:
         expect_of_product = norm_array * np.sum(mag_squared, axis=0)
         product_of_expect = (norm_array * np.sum(mag_retard, axis=0)) \
                             * (norm_array * np.sum(mag_non_retard, axis=0))
-        #expect_of_product = norm_array * np.sum((mag_per_time[retard_idx] * mag_per_time[non_retard_idx]).reshape(t_prime_array.shape), axis=0)
-        #product_of_expect = (norm_array * np.sum(mag_per_time[retard_idx].reshape(t_prime_array.shape), axis=0)) \
-        #                    * (norm_array * np.sum(mag_per_time[non_retard_idx].reshape(t_prime_array.shape), axis=0))
+        """
+        p1 = np.zeros(t_array.shape)
+        p2 = np.zeros(t_array.shape)
+        for t in t_array:
+            t_primes = 0
+            if t == 0:
+                t_primes = t_array.copy()
+            elif t > 0:
+                t_primes = t_array[:-t].copy()
+            norm = 1/(tmax - t - 1)
+            #p1[t] = np.mean(mag_per_time[t_primes] * mag_per_time[t_primes + t])
+            #p2[t] = np.mean(mag_per_time[t_primes]) * np.mean(mag_per_time[t_primes + t])
+            
+            p1[t] = norm * np.sum(mag_per_time[t_primes] * mag_per_time[t_primes + t])
+            p2[t] = norm * np.sum(mag_per_time[t_primes]) * norm * np.sum(mag_per_time[t_primes + t])
 
+            print(np.mean(mag_per_time[t_primes]), 1/norm, t_primes.shape, norm*np.sum(mag_per_time[t_primes]))
+            print(np.mean(mag_per_time[t_primes + t]), 1/norm, t_primes.shape, norm*np.sum(mag_per_time[t_primes + t]))
+            print(np.mean(mag_per_time[t_primes] * mag_per_time[t_primes + t]), 1/norm, t_primes.shape, norm*np.sum(mag_per_time[t_primes] * mag_per_time[t_primes + t]))
+            print(mag_per_time)
+            #sleep(5000)
+        return p1 - p2
+        """
         return expect_of_product - product_of_expect
         
         
@@ -255,14 +277,14 @@ class Ising2D_MC:
                 output['magnetization_squared_per_time'] = np.append(output['magnetization_squared_per_time'], config_mag**2)
             
             # Only calculate correlation function after last step:
-            config_corr = self.get_correlations(output['magnetization_per_time'])
+            config_corr = self.get_correlations(output['magnetization_per_time'] / (self.lattice_size**2))
             output['correlation_per_time'] = config_corr #Update refined+extended correlation function
             return output
         
         elif callable(time_steps_or_stop_crit):
             stop_crit = time_steps_or_stop_crit
             corr_calc_steps = 0
-            while(stop_crit(output) == False or corr_calc_steps<2*10):
+            while(stop_crit(output) == False or corr_calc_steps<2**8):
                 corr_calc_steps +=1
                 
                 self.config = self.mcmove(self.config, inv_temp) # Monte Carlo moves
@@ -308,14 +330,16 @@ class Ising2D_MC:
         #Measure correlation time:
         stop_crit = lambda output: bool(output['correlation_per_time'][-1] < -0.01)
         stop_crit = lambda output: True
+        
         corr_time_output, corr_calc_steps = self.__time_sweep__(temp, stop_crit)
         self.correlation_time = self.get_correlation_time(corr_time_output['correlation_per_time'])
+        self.correlation_time = 1
         
         #Sample around non-zero prob. equilibrium config / actual mc sampling:
         output = self.__time_sweep__(temp, mc_steps)
 
         #Calculate observable expectation values:
-        self.correlation = corr_time_output['correlation_per_time']
+        self.correlation = output['correlation_per_time']
         self.energy = self.thermal_average(output['energy_per_time'], temp) 
         self.magnetization = self.thermal_average(output['magnetization_per_time'], temp) 
         self.susceptibility = self.get_susceptibility(output['magnetization_per_time'], temp, int(16*self.correlation_time))
@@ -332,6 +356,7 @@ class Ising2D_MC:
             total_output[key] = th
             
         #Store and output meta_data
+        total_output["correlation_per_time"] = output['correlation_per_time']
         total_output['time'] = np.arange(0, equilib_steps+corr_calc_steps+mc_steps)
         total_output['temperature'] = temp
         total_output['mc_steps'] = mc_steps
@@ -407,13 +432,13 @@ if __name__ == "__main__":
     DATA_FILENAME = sys.argv[-1]
 
     # set variables
-    temp = 2.2
+    temp = 1.3
     equilib_steps = 2**10
-    mc_steps = 2**10
+    mc_steps = 2**8
 
-    temp_min = 1.5
-    temp_max = 3.5
-    n_temp_samples = 2**0
+    temp_min = 1.0
+    temp_max = 4.0
+    n_temp_samples = 2**0 # int((temp_max - temp_min) / 0.2)
 
     #Initialize and do single time sweep at fixed temperature
     mc_Ising_model = Ising2D_MC()

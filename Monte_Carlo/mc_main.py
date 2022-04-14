@@ -88,7 +88,7 @@ class Ising2D_MC:
         """ 
         generates a random spin configuration for initial condition
         """
-        self.config = 2*np.random.randint(2, size=(self.lattice_size,self.lattice_size))-1
+        #self.config = 2*np.random.randint(2, size=(self.lattice_size,self.lattice_size))-1
         self.config = np.ones((self.lattice_size,self.lattice_size))
         #state = 2*np.random.randint(2, size=(self.lattice_size,self.lattice_size))-1
 
@@ -172,6 +172,8 @@ class Ising2D_MC:
         expect_of_product = norm_array * np.sum(mag_squared, axis=0)
         product_of_expect = (norm_array * np.sum(mag_retard, axis=0)) \
                             * (norm_array * np.sum(mag_non_retard, axis=0))
+        
+
         """
         p1 = np.zeros(t_array.shape)
         p2 = np.zeros(t_array.shape)
@@ -202,7 +204,12 @@ class Ising2D_MC:
         """
         Returns the correlation time after system equilibriation
         """ 
-        return np.sum(correlations)/correlations[0]
+        first_neg_idx = np.where(correlations < 0.0)[0][0]
+        print("First negative index: ", first_neg_idx, " in ", np.where(correlations < 0.0)[0])
+        corr_time = np.sum(correlations[:first_neg_idx])/correlations[0]
+        corr_time_less = np.sum(correlations[:first_neg_idx-1])/correlations[0]
+        print("Correlation time is either ", corr_time, " or ", corr_time_less)
+        return corr_time
 
     def get_specific_heat(self, energies, temp, block_size):
         energies = np.array(energies)
@@ -333,7 +340,7 @@ class Ising2D_MC:
         
         corr_time_output, corr_calc_steps = self.__time_sweep__(temp, stop_crit)
         self.correlation_time = self.get_correlation_time(corr_time_output['correlation_per_time'])
-        self.correlation_time = 1
+        print("Corrtime = ", self.correlation_time)
         
         #Sample around non-zero prob. equilibrium config / actual mc sampling:
         output = self.__time_sweep__(temp, mc_steps)
@@ -431,14 +438,17 @@ if __name__ == "__main__":
     DATA_PATH = WORKDIR_PATH + "/data/" 
     DATA_FILENAME = sys.argv[-1]
 
+    # Derandomize the script:
+    np.random.seed(19)
+
     # set variables
-    temp = 1.3
+    temp = 2.269
     equilib_steps = 2**10
-    mc_steps = 2**8
+    mc_steps = 2**10
 
     temp_min = 1.0
     temp_max = 4.0
-    n_temp_samples = 2**0 # int((temp_max - temp_min) / 0.2)
+    n_temp_samples = int((temp_max - temp_min) / 0.2)
 
     #Initialize and do single time sweep at fixed temperature
     mc_Ising_model = Ising2D_MC()

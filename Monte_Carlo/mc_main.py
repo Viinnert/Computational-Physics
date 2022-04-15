@@ -240,7 +240,7 @@ class Ising2D_MC:
         magnetizations = np.reshape(magnetizations, (n_blocks, block_size))
 
         susceptibilities = np.mean(magnetizations**2, axis=1) - np.mean(magnetizations, axis=1)**2
-        susceptibilities /= (temp * self.lattice_size)
+        susceptibilities /= (temp * self.lattice_size**2)
 
         susceptibility['mean'] = np.mean(susceptibilities)
         susceptibility['std'] = np.std(susceptibilities)

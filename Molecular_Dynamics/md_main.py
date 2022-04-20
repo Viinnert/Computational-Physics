@@ -652,7 +652,7 @@ if __name__ == "__main__":
     global WORKDIR_PATH 
     WORKDIR_PATH = os.path.dirname(os.path.realpath(__file__))
     global DATA_PATH 
-    WORKDIR_PATH = WORKDIR_PATH + "data/" 
+    DATA_PATH = WORKDIR_PATH + "data/" 
 
     # Hardcoded inputs (Maybe replace with argv arguments)
     N_DIM = sys.argv[0] # Number of dimensions

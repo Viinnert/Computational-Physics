@@ -23,6 +23,7 @@ import h5py as hdf
 import os
 import sys
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 #Main Plotting Program
 def plot_expectation_vs_time(data_file_path):
@@ -33,7 +34,10 @@ def plot_expectation_vs_time(data_file_path):
         data = datafile['time_sweep_output']
         times = np.array(data['time'])
         lattice_size = np.array(data['lattice_size'])
-        print(lattice_size)
+        equilib_steps = np.array(data['equilib_steps'])
+        corr_calc_steps = np.array(data['corr_calc_steps'])
+        mc_steps = np.array(data['mc_steps'])
+     
         energies = np.array(data['energy_per_time']) / (lattice_size**2)
         magnetizations = np.array(data['magnetization_per_time']) / (lattice_size**2)
 
@@ -46,10 +50,12 @@ def plot_expectation_vs_time(data_file_path):
         sp =  fig.add_subplot(2, 1, 1 )
         plt.plot(times, energies, 'o', color='RoyalBlue')
         plt.plot(times[half_average_window_size-1:-half_average_window_size], running_mean_energy, '.', color='red' , label="Mean")
-
-        plt.xlabel(r"Time$", fontsize=20)
+        plt.xlabel(r"Time ", fontsize=20)
         plt.ylabel(r"Energy ($J$)", fontsize=20)
         plt.axis('tight')
+        plt.vlines(equilib_steps, ymin=-2., ymax=2., linestyles = 'dashed', color='red')
+        plt.vlines(equilib_steps + corr_calc_steps, ymin=-2.0, ymax=2.0, linestyles = 'dashed', color='red')
+
 
         sp =  fig.add_subplot(2, 1, 2 )
         plt.plot(times, magnetizations, 'o', color='RoyalBlue')
@@ -60,6 +66,26 @@ def plot_expectation_vs_time(data_file_path):
         plt.axis('tight')
         
         fig.suptitle(f"Expectation convergence for T={data['temperature']}")
+        plt.vlines(equilib_steps, ymin=-1.0, ymax=1.0, linestyles = 'dashed', color='red')
+        plt.vlines(equilib_steps + corr_calc_steps, ymin=-1.0, ymax=1.0, linestyles = 'dashed', color='red')
+
+        plt.show()
+        
+        converge_fig = plt.figure(figsize=(18, 10)); # plot the correlation function vs. time retard
+        
+        convergences = np.array(data['convergence_per_time'])
+        half_average_window_size = int(2 * times.shape[0] / 100)
+        running_mean_convergence = np.convolve(convergences *100, np.ones(2*half_average_window_size)/(2*half_average_window_size), mode='valid')
+
+        plt.plot(times, convergences*100, 'o', color='RoyalBlue')
+        plt.plot(times[half_average_window_size-1: -half_average_window_size], running_mean_convergence,'.', color='red' , label="Mean")
+        plt.xlabel(r"Time", fontsize=20)
+        plt.ylabel(r"Convergence (%)", fontsize=20)
+        plt.axis('tight')
+        plt.vlines(equilib_steps, ymin=0.0, ymax=100.0, linestyles = 'dashed', color='red')
+        plt.vlines(equilib_steps + corr_calc_steps, ymin=0.0, ymax=100.0, linestyles = 'dashed', color='red')
+
+
         plt.show()
         
         corr_fig = plt.figure(figsize=(18, 10)); # plot the correlation function vs. time retard
@@ -71,14 +97,15 @@ def plot_expectation_vs_time(data_file_path):
         plt.xlabel(r"Time difference", fontsize=20)
         plt.ylabel(r"Correlation", fontsize=20)
         plt.axis('tight')
-
         plt.show()
+        
     
 def plot_expectation_vs_temp(data_file_path):
     """
     Insert docstring
     """
     with hdf.File(data_file_path, "r") as datafile:
+        
         data = datafile['temp_sweep_output']
         temperatures = np.array(data['temperature'])
 
@@ -113,6 +140,42 @@ def plot_expectation_vs_temp(data_file_path):
         plt.axis('tight')
 
         plt.show()
+                
+        mag_fig = plt.figure(figsize=(18, 10)); # plot the correlation time per temperature:
+        
+        mag_data = np.array(data["magnetization_per_time_per_temp"]) / np.array(data["lattice_size"])**2
+        times = np.arange(0, mag_data.shape[1])
+        
+        equilib_steps = np.array(data["equilib_steps_per_temp"])[0] 
+        corr_calc_steps = np.array(data["corr_calc_steps_per_temp"])[0] 
+        mc_steps = np.array(data["mc_steps_per_temp"])[0]
+        
+        with sns.color_palette("coolwarm_r", n_colors=temperatures.shape[0], ):
+            plt.plot(times, np.flip(mag_data[1:, :], axis=0).T,marker='o', alpha=0.4)
+            plt.xlabel(r"Time", fontsize=20)
+            plt.ylabel(r"Magnetization per spin", fontsize=20)
+            plt.axis('tight')
+            plt.legend(np.flip(np.round(temperatures, 1)))
+            plt.vlines(equilib_steps, ymin=-1.0, ymax=1.0, linestyles = 'dashed', color='red')
+            plt.vlines(equilib_steps + corr_calc_steps, ymin=-1.0, ymax=1.0, linestyles = 'dashed', color='red')
+        plt.show()
+        
+        
+        convergence_fig = plt.figure(figsize=(18, 10)); # plot the correlation time per temperature:
+        
+        converge_data = np.array(data["convergence_per_time_per_temp"])
+        times = np.arange(0, converge_data.shape[1])
+        with sns.color_palette("coolwarm", n_colors=temperatures.shape[0]):
+            plt.plot(times, converge_data[1:, :].T,marker='o')
+            plt.xlabel(r"Time", fontsize=20)
+            plt.ylabel(r"Convergence (%)", fontsize=20)
+            plt.axis('tight')
+            plt.legend(np.round(temperatures, 1))
+            plt.vlines(equilib_steps, ymin=0.0, ymax=100.0, linestyles = 'dashed', color='red')
+            plt.vlines(equilib_steps+ corr_calc_steps, ymin=0.0, ymax=100.0, linestyles = 'dashed', color='red')
+
+        plt.show()
+        
         
         corrtime_fig = plt.figure(figsize=(18, 10)); # plot the correlation time per temperature:
         

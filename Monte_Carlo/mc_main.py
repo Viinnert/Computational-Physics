@@ -449,7 +449,7 @@ class Ising2D_MC:
         # Sample around non-zero prob. equilibrium config / actual mc sampling:
         output = self.__time_sweep__(temp, mc_steps)
 
-        #Calculate observable expectation values:
+        # Calculate observable expectation values:
         self.correlation = output['correlation_per_time']
         self.energy = self.thermal_average(output['energy_per_time'], temp) 
         self.magnetization = self.thermal_average(output['magnetization_per_time'], temp) 

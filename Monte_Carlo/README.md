@@ -15,6 +15,22 @@ This folder contains the following files.
 - mc_main.py: This python script contains the main functions of Monte-Carlo simulation.
 - mc_plot.py: This python script contains some functions to plot the results of the simulation saved in the data file.
 
-### Run simulation:
+## Reproducing results:
 
 mc_main.py and mc_plot.py are set this way that just running these scripts would reproduce the results from the report.
+
+## Running a simulation
+
+One can initialise a model using the Ising2D_MD() class. The simulation is run using one of the two functions:
+
+- __simulate_mc__(): This functions simulates the model for a given temperature and returns a dictionary containing all the physical properties.
+- __temp_sweep__(): This function simulated the model for a multiple given temperatures and returns a dictionary containing all the physical properties for each temperatute.
+
+The results must be saved to the correct data file using the save_results() function.
+
+To make plots of the data you will need the two functions in mc_plot.py.
+
+- plot_expectation_vs_time()
+- plot_expectation_vs_temp()
+
+By calling those functions with the data file the plots will pop up automatically.

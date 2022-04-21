@@ -7,14 +7,16 @@ model
 .....
 
 ## Authors
-Vincent Krabbenborg (Studentnummer = XXXXXXX)
+Vincent Krabbenborg (Studentnummer = 2029189)
 Thomas Rothe (Studentnummer = 1930443)
 
 ## Usage
+This folder contains the following files.
+
+-data: This folder contains the .hdf5 data file to which the simulation results are saved.
+-mc_main.py: This python script contains the main functions of Monte-Carlo simulation.
+-mc_plot.py: This python script contains some functions to plot the results of the simulation saved in the data file.
 
 ### Run simulation:
 
-Temporarily run by:
-
-python mc_main.py data.hdf5
-python mc_plot.py data.hdf5
+mc_main.py and mc_plot.py are set this way that just running these scripts would reproduce the results from the report.

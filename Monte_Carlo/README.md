@@ -4,8 +4,6 @@ Second Project for Computational Physics 2022:
 Monte-Carlo Simulation: Monte-Carlo simulation of the the Ising
 model 
 
-.....
-
 ## Authors
 Vincent Krabbenborg (Studentnummer = 2029189)
 Thomas Rothe (Studentnummer = 1930443)

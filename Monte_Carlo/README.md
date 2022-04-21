@@ -23,8 +23,8 @@ mc_main.py and mc_plot.py are set this way that just running these scripts would
 
 One can initialise a model using the Ising2D_MD() class. The simulation is run using one of the two functions:
 
-- __simulate_mc__(): This functions simulates the model for a given temperature and returns a dictionary containing all the physical properties.
-- __temp_sweep__(): This function simulated the model for a multiple given temperatures and returns a dictionary containing all the physical properties for each temperatute.
+- \_\_simulate_mc\_\_(): This functions simulates the model for a given temperature and returns a dictionary containing all the physical properties.
+- \_\_temp_sweep\_\_(): This function simulated the model for a multiple given temperatures and returns a dictionary containing all the physical properties for each temperatute.
 
 The results must be saved to the correct data file using the save_results() function.
 

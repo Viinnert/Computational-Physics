@@ -440,7 +440,7 @@ class Ising2D_MC:
         
         # Measure correlation time:
         corr_stop_crit = lambda output: bool(output['correlation_per_time'][-int(0.05*output['correlation_per_time'].shape[0])] < 0.0)
-        # corr_stop_crit = lambda output: True
+        #corr_stop_crit = lambda output: True
         
         corr_time_output, corr_calc_steps = self.__time_sweep__(temp, corr_stop_crit)
         self.correlation_time = self.get_correlation_time(corr_time_output['correlation_per_time'])

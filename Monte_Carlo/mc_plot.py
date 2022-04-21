@@ -25,11 +25,20 @@ import sys
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-#Main Plotting Program
+# Main Plotting Program
 def plot_expectation_vs_time(data_file_path):
-    """
-    Insert docstring
-    """
+    '''
+    Plots various physical properties over time
+
+    Parameters
+    ----------
+    data_file_path: string
+        the path name to the data file containing the data to plot
+
+    Returns
+    -------
+    None
+    '''
     with hdf.File(data_file_path, "r") as datafile:
         data = datafile['time_sweep_output']
         times = np.array(data['time'])
@@ -55,7 +64,6 @@ def plot_expectation_vs_time(data_file_path):
         plt.axis('tight')
         plt.vlines(equilib_steps, ymin=-2., ymax=2., linestyles = 'dashed', color='red')
         plt.vlines(equilib_steps + corr_calc_steps, ymin=-2.0, ymax=2.0, linestyles = 'dashed', color='red')
-
 
         sp =  fig.add_subplot(2, 1, 2 )
         plt.plot(times, magnetizations, 'o', color='RoyalBlue')
@@ -85,7 +93,6 @@ def plot_expectation_vs_time(data_file_path):
         plt.vlines(equilib_steps, ymin=0.0, ymax=100.0, linestyles = 'dashed', color='red')
         plt.vlines(equilib_steps + corr_calc_steps, ymin=0.0, ymax=100.0, linestyles = 'dashed', color='red')
 
-
         plt.show()
         
         corr_fig = plt.figure(figsize=(18, 10)); # plot the correlation function vs. time retard
@@ -101,9 +108,18 @@ def plot_expectation_vs_time(data_file_path):
         
     
 def plot_expectation_vs_temp(data_file_path):
-    """
-    Insert docstring
-    """
+    '''
+    Plots various physical properties over temperatute
+
+    Parameters
+    ----------
+    data_file_path: string
+        the path name to the data file containing the data to plot
+
+    Returns
+    -------
+    None
+    '''
     with hdf.File(data_file_path, "r") as datafile:
         
         data = datafile['temp_sweep_output']
@@ -160,7 +176,6 @@ def plot_expectation_vs_temp(data_file_path):
             plt.vlines(equilib_steps + corr_calc_steps, ymin=-1.0, ymax=1.0, linestyles = 'dashed', color='red')
         plt.show()
         
-        
         convergence_fig = plt.figure(figsize=(18, 10)); # plot the correlation time per temperature:
         
         converge_data = np.array(data["convergence_per_time_per_temp"])
@@ -175,8 +190,7 @@ def plot_expectation_vs_temp(data_file_path):
             plt.vlines(equilib_steps+ corr_calc_steps, ymin=0.0, ymax=100.0, linestyles = 'dashed', color='red')
 
         plt.show()
-        
-        
+         
         corrtime_fig = plt.figure(figsize=(18, 10)); # plot the correlation time per temperature:
         
         plt.plot(temperatures, np.array(data['correlation_time_per_temp']),marker='o', color='RoyalBlue')

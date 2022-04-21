@@ -135,7 +135,7 @@ class Ising2D_MC:
                 else:
                     pass # Change nothing / finally reject 
             
-            #U pdate spin value
+            # Update spin value
             config[random_x, random_y] = random_spin
         
         convergence_rate = n_rejections / (self.lattice_size**2)

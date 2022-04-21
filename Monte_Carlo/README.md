@@ -11,9 +11,9 @@ Thomas Rothe (Studentnummer = 1930443)
 ## Usage
 This folder contains the following files.
 
--data: This folder contains the .hdf5 data file to which the simulation results are saved.
--mc_main.py: This python script contains the main functions of Monte-Carlo simulation.
--mc_plot.py: This python script contains some functions to plot the results of the simulation saved in the data file.
+- data: This folder contains the .hdf5 data file to which the simulation results are saved.
+- mc_main.py: This python script contains the main functions of Monte-Carlo simulation.
+- mc_plot.py: This python script contains some functions to plot the results of the simulation saved in the data file.
 
 ### Run simulation:
 

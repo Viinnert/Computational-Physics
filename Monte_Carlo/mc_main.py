@@ -61,7 +61,7 @@ class Ising2D_MC:
     '''
     Defines a 2-dimensional Ising model simulation.
     '''
-    def __init__(self, lattice_size=2**5):
+    def __init__(self, lattice_size=50):
         '''
         Initializes the Ising model
 
@@ -162,7 +162,7 @@ class Ising2D_MC:
                 spin = config[i,j]
                 neighbor_spin_sum = config[(i+1)%self.lattice_size, j] + config[i,(j+1)%self.lattice_size] + config[(i-1)%self.lattice_size, j] + config[i,(j-1)%self.lattice_size]
                 energy += -neighbor_spin_sum*spin
-        return energy/2.0 # Remove quadruple counting of spin-spin neighbor pair in 2D
+        return energy/2.0 # Remove double counting of spin-spin neighbor pair in 2D
 
     def get_mag(self, config):
         '''
@@ -392,8 +392,8 @@ class Ising2D_MC:
                     # Calculate correlation to check for integration bound chi(t) < 0
                     config_corr = self.get_correlations(output['magnetization_per_time'] / (self.lattice_size**2))
                     output['correlation_per_time'] = config_corr # Update refined+extended correlation function  
-                    print(f"Correlation {config_corr[-int(0.05*config_corr.shape[0])]} in computation step {corr_calc_steps}")
-                    print(f"computed with magnetization {config_mag}")    
+                    #print(f"Correlation {config_corr[-int(0.05*config_corr.shape[0])]} in computation step {corr_calc_steps}")
+                    #print(f"computed with magnetization {config_mag}")    
                 
                 if corr_calc_steps==min_corr_calc_steps:
                     break
@@ -561,7 +561,7 @@ if __name__ == "__main__":
     DATA_FILENAME = sys.argv[-1]
 
     # Derandomize the script:
-    np.random.seed(43)
+    np.random.seed(17)
 
     # set variables
     temp = 3.8

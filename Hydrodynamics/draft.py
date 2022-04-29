@@ -9,4 +9,5 @@ initialisation_method = 'random' # 'random' or ...
 
 # Simulation
 
-simulation = LatticeBoltzmann(Nx, Ny, delta_t, N_timesteps)
+simulation = LatticeBoltzmann(Nx, Ny)
+simulation.simulate(N_timesteps, delta_t)

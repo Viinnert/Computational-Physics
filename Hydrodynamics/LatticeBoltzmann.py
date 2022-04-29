@@ -6,8 +6,6 @@ class LatticeBoltzmann():
         ''' Initialise simulation '''
         self.Nx = Nx
         self.Ny = Ny
-        self.delta_t = delta_t
-        self.N_timesteps = N_timesteps
         self.init_method = init_method
 
         self.unit_vectors = np.array([[-1,1], [0,1], [1,1],
@@ -18,6 +16,8 @@ class LatticeBoltzmann():
                                  1/9, 4/9, 1/9,
                                  1/36, 1/9, 1/36])
 
+        self.speeds_of_sound = 1/np.sqrt(3)
+
     def initialise_field(self):
         if self.init_method == 'random':
             field = np.random.random((self.Nx, self.Ny, 9))
@@ -27,15 +27,7 @@ class LatticeBoltzmann():
         
         return field
 
-    def step(self):
-        pass
-
-    def plot(self):
-        pass
-
-    def simulate(self):
-        ''' Run simulation '''
-        field = self.initialise_field()
+    def get_properties(self, field):
 
         densities = np.sum(field, axis=2)
 
@@ -47,4 +39,21 @@ class LatticeBoltzmann():
                 velocity /= densities[i,j]
                 velocities[i,j] = velocity
 
-        
+        eq_field = None # TO DO: implement
+
+        return densities, velocities, eq_field
+
+    def step(self, field, densities, velocities, eq_field, delta_t):
+        pass
+
+    def plot(self, densities, velocities):
+        pass
+
+    def simulate(self, N_timesteps, delta_t):
+        ''' Run simulation '''
+        field = self.initialise_field()
+
+        for t in range(N_timesteps):
+            densities, velocities, eq_field = self.get_properties(field)
+            field = self.step(field, densities, velocities, eq_field, delta_t)
+            self.plot(densities, velocities)

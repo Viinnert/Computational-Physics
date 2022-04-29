@@ -4,8 +4,8 @@ from LatticeBoltzmann import LatticeBoltzmann
 Nx = 100
 Ny = 100
 delta_t = 0.5
-N_timesteps = 20
-init_method = 'random' # 'random' or ...
+N_timesteps = 10
+init_method = 'test' # 'random' or 'test
 
 # Simulation
 simulation = LatticeBoltzmann(Nx, Ny, init_method)

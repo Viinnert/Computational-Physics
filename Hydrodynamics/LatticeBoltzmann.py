@@ -24,8 +24,9 @@ class LatticeBoltzmann():
         if self.init_method == 'random':
             field = np.random.random((self.Nx, self.Ny, 9))
 
-        elif self.init_method == '':
-            pass
+        elif self.init_method == 'test':
+            field = np.random.random((self.Nx, self.Ny, 9)) * 0.2
+            field[:,40:60,5] = 2
         
         return field
 
@@ -68,9 +69,9 @@ class LatticeBoltzmann():
         x_values = np.arange(self.Nx)
         y_values = np.arange(self.Ny)
 
-        plt.pcolormesh(x_values, y_values, densities)
+        plt.pcolormesh(x_values, y_values, densities, vmin=0, vmax=5)
         plt.draw()
-        plt.pause(0.2)
+        plt.pause(0.01)
 
     def simulate(self, N_timesteps, delta_t):
         ''' Run simulation '''

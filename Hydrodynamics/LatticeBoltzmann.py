@@ -45,7 +45,12 @@ class LatticeBoltzmann():
         return densities, velocities, eq_field
 
     def step(self, field, densities, velocities, eq_field, delta_t):
-        pass
+        # Collision step
+        # TO DO: implement
+        
+        # Streaming step
+        # TO DO: implement
+        pass #return new_field
 
     def plot(self, densities, velocities):
         pass

@@ -43,5 +43,8 @@ class LatticeBoltzmann():
         for i in range(self.Nx): # improve efficiency maybe?
             for j in range(self.Ny):
                 velocity = field[i,j,:,None] * self.unit_vectors
+                velocity /= densities[i,j]
                 velocity = np.sum(velocity, axis=0)
                 velocities[i,j] = velocity
+
+        

@@ -2,7 +2,7 @@ import numpy as np
 
 class LatticeBoltzmann():
 
-    def __init__(self, Nx, Ny, delta_t, N_timesteps, init_method):
+    def __init__(self, Nx, Ny, init_method):
         ''' Initialise simulation '''
         self.Nx = Nx
         self.Ny = Ny
@@ -19,6 +19,7 @@ class LatticeBoltzmann():
         self.speeds_of_sound = 1/np.sqrt(3)
 
     def initialise_field(self):
+        ''' Initialises field at first timestep '''
         if self.init_method == 'random':
             field = np.random.random((self.Nx, self.Ny, 9))
 
@@ -28,7 +29,7 @@ class LatticeBoltzmann():
         return field
 
     def get_properties(self, field):
-
+        ''' Calculated properties like density/velocity/eq_field for a given field '''
         densities = np.sum(field, axis=2)
 
         velocities = np.zeros((self.Nx, self.Ny))

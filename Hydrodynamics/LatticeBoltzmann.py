@@ -8,7 +8,6 @@ class LatticeBoltzmann():
         self.Nx = Nx
         self.Ny = Ny
         self.init_method = init_method
-        self.fig = plt.figure(figsize=(10,10))
 
         self.direction_vectors = np.array([[-1,1], [0,1], [1,1],
                                       [-1,0], [0,0], [1,0],
@@ -69,7 +68,9 @@ class LatticeBoltzmann():
         x_values = np.arange(self.Nx)
         y_values = np.arange(self.Ny)
 
-        pcolormesh = plt.pcolormesh(x_values, y_values, densities)
+        plt.pcolormesh(x_values, y_values, densities)
+        plt.draw()
+        plt.pause(0.2)
 
     def simulate(self, N_timesteps, delta_t):
         ''' Run simulation '''

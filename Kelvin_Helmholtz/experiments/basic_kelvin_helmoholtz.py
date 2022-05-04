@@ -13,17 +13,16 @@ sys.path.insert(1, WORKDIR_PATH)
 from kh_main import *
 from kh_plot import *
 
-def init_mixing(lattice_size, lattice_flow_vecs):
+def init_kelvin_helmholtz(lattice_size, lattice_flow_vecs):
     median_density_flow = 1.0
     density_flow_ratio = 3.0 #higher/lower
     #r*l = h with (h+l)/2 = m -> 2m - l = h = r*l -> l = 2m/(r+1)
     lower_density_flow = 2*median_density_flow/(density_flow_ratio+1)
     
     init_map = np.zeros((*lattice_size, lattice_flow_vecs.shape[1]))
-    init_map[:, :int(init_map.shape[1]/2),0] = lower_density_flow
-    init_map[:, int(init_map.shape[1]/2):,0] = density_flow_ratio*lower_density_flow
-    #init_map[:, :int(init_map.shape[1]/2),:] = lower_density_flow/lattice_flow_vecs.shape[1]
-    #init_map[:, int(init_map.shape[1]/2):,:] = (density_flow_ratio*lower_density_flow)/lattice_flow_vecs.shape[1]
+    init_map[:, :int(init_map.shape[1]/2),:] = lower_density_flow/lattice_flow_vecs.shape[1]
+    init_map[:, int(init_map.shape[1]/2):,:] = (density_flow_ratio*lower_density_flow)/lattice_flow_vecs.shape[1]
+
     return init_map
 
 
@@ -31,20 +30,20 @@ if __name__ == "__main__":
 
     # Dimensionless constants
     LATTICE_SIZE = (100,100) # Canvas size 
-    END_OF_TIME = 10 # Maximum time
+    END_OF_TIME = 50 # Maximum time
 
     DATA_PATH = EXPERIMENTS_PATH + "data/" 
     DATA_FILENAME = "temp_data.hdf5"
     
-    #RELAXATION_COEFFS = np.array([0.0, 0.5, 1.1, 0.0 ,1.1, 0.0, 1.1, 0.5, 0.5])
-    RELAX_TIME = 10.0
-    RELAXATION_COEFFS = np.array([0.0, 1/RELAX_TIME, 1/RELAX_TIME, 0.0 ,1/RELAX_TIME, 0.0, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME])
-    GAMMA4 = 1.0
-    ALPHA3 = 1.0
+    RELAX_TIME = 4.0
+    RELAXATION_COEFFS = np.array([0.0, 1/RELAX_TIME, 1.1, 0.0 ,1.1, 0.0, 1.1, 1/RELAX_TIME, 1/RELAX_TIME])
+    #RELAXATION_COEFFS = np.array([0.0, 1/RELAX_TIME, 1/RELAX_TIME, 0.0 ,1/RELAX_TIME, 0.0, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME])
+    GAMMA4 = 1.1
+    ALPHA3 = 1.1
     
     # Main simulation procedure
     dfm = DensityFlowMap.D2Q9(lattice_size=LATTICE_SIZE, 
-                              map_init=init_mixing, 
+                              map_init=init_kelvin_helmholtz, 
                               relaxation_coeffs=RELAXATION_COEFFS, 
                               alpha3 = ALPHA3, 
                               gamma4 = GAMMA4) 
@@ -62,6 +61,3 @@ if __name__ == "__main__":
         
 
 
-        
-
-        

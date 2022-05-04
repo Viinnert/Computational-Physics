@@ -17,17 +17,32 @@ from multiprocessing.sharedctypes import Value
 from typing import Dict, Tuple, List, Union, Callable
 import os
 import sys
+import h5py as hdf
 from time import sleep
 import numpy as np
 import scipy as sp
 from sympy import true
 from tqdm import tqdm
 
+def save_to_file(results, data_file_path):
+    with hdf.File(data_file_path, "w") as datafile:
+        for output_kind in results.keys():
+            datagroup = datafile.create_group(output_kind)
+            for key in results[output_kind].keys():
+                data = (results[output_kind])[key]
+                if isinstance(data, dict):
+                    datagroup.create_dataset(key+'_mean', data=data['mean'])
+                    datagroup.create_dataset(key+'_std', data=data['std'])
+                else:
+                    #print(type(data), data.shape, key, output_kind)
+                    datagroup.create_dataset(key, data=data)
+
+                 
 
 def D2Q9_collision_matrix(c_densities, c_velocities,  relaxation_coeffs, equilib_coeffs):
     coll_mat = np.zeros((*c_densities.shape, *relaxation_coeffs.shape, *relaxation_coeffs.shape)) #4D array
-    coll_mat[:,:,1,0] = relaxation_coeffs[2-1]*equilib_coeffs['alpha2'] / 4
-    coll_mat[:,:,2,0] = relaxation_coeffs[3-1]*equilib_coeffs['alpha3'] / 4
+    coll_mat[:,:,1,0] = (relaxation_coeffs[2-1]*equilib_coeffs['alpha2'] / 4) * c_densities
+    coll_mat[:,:,2,0] = (relaxation_coeffs[3-1]*equilib_coeffs['alpha3'] / 4) * c_densities
     
     coll_mat[:,:,1,1] = -relaxation_coeffs[2-1]
     
@@ -62,11 +77,11 @@ def D2Q9_advection_matrix(lattice_flow_vecs, lattice_size):
     
     for i in range(1, lattice_flow_vecs.shape[1]):
         lfvec = lattice_flow_vecs[:,i]
-        loc_advec_x = np.roll(np.identity(lattice_size[0]), shift=lfvec[0],axis=0)
-        np.concatenate((advec_mat_x, loc_advec_x[:,:,np.newaxis]), axis=2)
-        loc_advec_y = np.roll(np.identity(lattice_size[1]), shift=lfvec[1], axis=1)
-        np.concatenate((advec_mat_y, loc_advec_y[:,:,np.newaxis]), axis=2)
-        
+        loc_advec_x = np.roll(np.identity(lattice_size[0]), shift=int(lfvec[0]),axis=0)
+        advec_mat_x = np.concatenate((advec_mat_x, loc_advec_x[:,:,np.newaxis]), axis=2)
+        loc_advec_y = np.roll(np.identity(lattice_size[1]), shift=int(lfvec[1]), axis=1)
+        advec_mat_y = np.concatenate((advec_mat_y, loc_advec_y[:,:,np.newaxis]), axis=2)
+ 
     assert advec_mat_x.shape == (lattice_size[0], lattice_size[0], lattice_flow_vecs.shape[1])
     assert advec_mat_y.shape == (lattice_size[1], lattice_size[1], lattice_flow_vecs.shape[1])
     
@@ -98,7 +113,7 @@ class DensityFlowMap:
     inv_mom_space_transform: np.ndarray = field(init=False, repr=False)
 
 
-    def __post_init__(self, map_init, coll_op_construct, advec_op_construct):
+    def __post_init__(self, map_init, mom_coll_op_construct, advec_op_construct):
         
         assert self.relaxation_coeffs.shape[0] == self.mom_space_transform.shape[0]
         self.inv_mom_space_transform = np.linalg.inv(self.mom_space_transform)
@@ -113,10 +128,10 @@ class DensityFlowMap:
         init_densities = self.densities()
         init_velocities = self.velocities(init_densities)
         
-        self.mom_coll_op = self.mom_coll_op_construct(init_densities, init_velocities, self.relaxation_coeffs, self.equilib_coeffs)
-        self.advec_ops = self.advec_op_construct()
-        self.coll_op = np.einsum('ijm,jkm,klm->ilm' ,self.inv_mom_space_transform, self.coll_op, self.mom_space_transform)
-        
+        self.mom_coll_op = mom_coll_op_construct(init_densities, init_velocities, self.relaxation_coeffs, self.equilib_coeffs)
+        self.coll_op = np.einsum('ij,mnjk,kl->mnil' ,self.inv_mom_space_transform, self.mom_coll_op, self.mom_space_transform)
+        self.advec_ops = advec_op_construct(self.lattice_flow_vecs, self.lattice_size)
+          
     @property
     def map(self):
         return self._map
@@ -195,10 +210,10 @@ class DensityFlowMap:
         return np.sum(self._map, axis=-1)
 
     def velocities(self, densities=None):
-        if densities==None:
+        if not isinstance(densities, np.ndarray):
             densities = self.densities()
         
-        return np.einsum('ij,klj->kli', self.lattice_flow_vecs, self._map) / densities
+        return np.einsum('ij,klj->kli', self.lattice_flow_vecs, self._map) / densities[:, :, np.newaxis]
     
     def moment_basis(self):
         '''
@@ -223,7 +238,8 @@ class LatticeBoltzmann:
     
     def collision(self):
         c_map = self.dfm.map
-        delta_map = np.einsum('ijl,jkl->ikl', self.dfm.coll_op, c_map)
+        delta_map = np.einsum('mnij,mnj->mni', self.dfm.coll_op, c_map)
+        print(delta_map)
         self.dfm.map = c_map + delta_map
         
     def advection(self):
@@ -242,9 +258,12 @@ class LatticeBoltzmann:
     def __run__(self, end_of_time):
         time = np.arange(0, end_of_time, step=self.dfm.delta_t)
         
-        output = {'density_per_time': []}
-        for t in time:
-            self.evolve()
-            output['density_per_time'].append(self.densities())
+        output = {'density_per_time': [], 'net_flow_vec_per_time': np.array([])}
+        output['time'] = time
         
+        for t in tqdm(time):
+            self.evolve()
+            output['density_per_time'].append(self.dfm.densities())
+        
+        output['density_per_time'] = np.array(output['density_per_time'])
         return output

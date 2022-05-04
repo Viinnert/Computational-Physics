@@ -4,7 +4,7 @@ Project overview:
 
 - Molecular Dynamics (MD)
 - Monte-Carlo Simulation
-- Individual Project TBD
+- Kelvin Helmholtz instabilities in Hydrodynamics
 
 (see separate folder for each project)
 

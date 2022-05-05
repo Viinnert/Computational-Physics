@@ -29,7 +29,7 @@ def init_kelvin_helmholtz(lattice_size, lattice_flow_vecs):
 if __name__ == "__main__":
 
     # Dimensionless constants
-    LATTICE_SIZE = (100,100) # Canvas size 
+    LATTICE_SIZE = (80,80) # Canvas size 
     END_OF_TIME = 50 # Maximum time
 
     DATA_PATH = EXPERIMENTS_PATH + "data/" 

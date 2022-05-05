@@ -56,24 +56,28 @@ def plot_D2Q9_density_flow(data_file_path):
     None.
 
     '''
-    time, density_over_time = np.array([]), np.array([])
+    time, density_over_time, velocity_over_time = np.array([]), np.array([]), np.array([])
 
     with hdf.File(data_file_path,'r') as data_file:
         data = data_file['time_sweep_output']
         time = np.array(data['time'])
         density_over_time = np.array(data['density_per_time'])
-        print(density_over_time.shape)
+        velocity_over_time = np.array(data['net_velocity_per_time'])
+        print(density_over_time.shape, velocity_over_time.shape)
 
     delta_t = time[1] - time[0]
     
     for (it, t) in enumerate(time):
         frame = density_over_time[it, :, :]
+        veloc_vecs = velocity_over_time[it, :, :, :]
         x_coord = np.arange(density_over_time.shape[1])
-        y_coord = np.arange(density_over_time.shape[1])
+        y_coord = np.arange(density_over_time.shape[2])
         x_mesh, y_mesh = np.meshgrid(x_coord, y_coord)
         
-        plt.pcolormesh(x_mesh, y_mesh, frame, vmin=0, vmax=5)
+        plt.pcolormesh(x_mesh, y_mesh, frame, vmin=0, vmax=5, cmap='twilight')
         plt.draw()
+        plt.quiver(x_mesh, y_mesh, veloc_vecs[:,:,0], veloc_vecs[:,:,1], frame, cmap='bone')
+        #plt.streamplot(x_mesh, y_mesh, veloc_vecs[:,:,0], veloc_vecs[:,:,1], density=1, color=frame, cmap='bone')
         plt.title(f"Density at time {t}")
         plt.show()
         sleep(1)

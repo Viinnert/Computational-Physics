@@ -235,35 +235,68 @@ class LatticeBoltzmann:
         ..
         '''
         self.dfm = density_flow_map
+        self.speed_of_sound = 1/np.sqrt(3)
     
     def collision(self):
         c_map = self.dfm.map
         delta_map = np.einsum('mnij,mnj->mni', self.dfm.coll_op, c_map)
         print(delta_map)
         self.dfm.map = c_map + delta_map
+    
+    def classical_collision(self):
+        c_map = self.dfm.map
+        def get_equilib_map():
+            equilib_map = np.zeros((*self.dfm.lattice_size, 9))
+            weights = np.array([4/9, 1/9, 1/9,
+                            1/9, 1/9, 1/36,
+                            1/36, 1/36, 1/36])
+            velocities = self.dfm.velocities()
+            densities =  self.dfm.densities()
+            for i in range(self.dfm.lattice_size[0]): # TO DO: improve efficiency
+                for j in range(self.dfm.lattice_size[1]):
+                    term1 = np.dot(velocities[i,j,:], self.dfm.lattice_flow_vecs) / self.speed_of_sound**2
+                    term2 = np.dot(velocities[i,j,:], self.dfm.lattice_flow_vecs)**2 / 2*self.speed_of_sound**4
+                    term3 = np.dot(velocities[i,j,:], velocities[i,j,:]) / 2*self.speed_of_sound**2
+                    equilib_map[i,j,:] = densities[i,j] * weights * (1 + term1 + term2 - term3)
+            return equilib_map
         
+        equilib_map = get_equilib_map()
+        
+        self.dfm.map = c_map + (equilib_map - c_map) * self.dfm.relaxation_coeffs[1]
+    
     def advection(self):
         c_map = self.dfm.map
         if self.dfm.lattice_type == 'D2Q9':
             self.dfm.map = np.einsum('ijn,jkn,kmn->imn', self.dfm.advec_ops[0], c_map, self.dfm.advec_ops[1])
         else:
             raise ValueError("Advection currently only supports D2Q9 lattices")
-        
+    
+    def classical_advection(self):
+        c_map = self.dfm.map
+        new_map = np.zeros((*self.dfm.lattice_size, 9))
+        for i in range(9):
+            new_map[:,:,i] = np.roll(c_map[:,:,i], self.dfm.lattice_flow_vecs[:,i].astype(int), axis=(0,1))
+
+        self.dfm.map = new_map
+    
     def evolve(self):
-        self.collision()
+        #self.collision()
+        self.classical_collision()
         
-        self.advection()
+        #self.advection()
+        self.classical_advection()
         
     
     def __run__(self, end_of_time):
         time = np.arange(0, end_of_time, step=self.dfm.delta_t)
         
-        output = {'density_per_time': [], 'net_flow_vec_per_time': np.array([])}
+        output = {'density_per_time': [], 'net_velocity_per_time': [], 'net_flow_vec_per_time': np.array([])}
         output['time'] = time
         
         for t in tqdm(time):
             self.evolve()
             output['density_per_time'].append(self.dfm.densities())
-        
+            output['net_velocity_per_time'].append(self.dfm.velocities())
         output['density_per_time'] = np.array(output['density_per_time'])
+        output['net_velocity_per_time'] = np.array(output['net_velocity_per_time'])
         return output

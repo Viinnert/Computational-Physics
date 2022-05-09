@@ -29,7 +29,7 @@ params = {
     "xtick.labelsize": 10,
     "ytick.labelsize": 10,
     "text.usetex": False,
-    "figure.figsize": (3.15, 3.15),
+    "figure.figsize": (10, 10),
     "figure.subplot.left": 0.14,
     "figure.subplot.right": 0.99,
     "figure.subplot.bottom": 0.12,
@@ -74,11 +74,13 @@ def plot_D2Q9_density_flow(data_file_path):
         y_coord = np.arange(density_over_time.shape[2])
         x_mesh, y_mesh = np.meshgrid(x_coord, y_coord)
         
-        plt.pcolormesh(x_mesh, y_mesh, frame, vmin=0, vmax=5, cmap='twilight')
+        plt.pcolormesh(x_mesh, y_mesh, frame.T, vmin=0, vmax=5, cmap='twilight')
         plt.draw()
-        plt.quiver(x_mesh, y_mesh, veloc_vecs[:,:,0], veloc_vecs[:,:,1], frame, cmap='bone')
+        print(veloc_vecs[:,:,0])
+        plt.quiver(x_mesh, y_mesh, veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, frame.T, cmap='bone')
         #plt.streamplot(x_mesh, y_mesh, veloc_vecs[:,:,0], veloc_vecs[:,:,1], density=1, color=frame, cmap='bone')
         plt.title(f"Density at time {t}")
+        plt.colorbar()
         plt.show()
-        sleep(1)
+        sleep(0.1)
 

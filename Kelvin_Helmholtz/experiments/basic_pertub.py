@@ -13,35 +13,28 @@ sys.path.insert(1, WORKDIR_PATH)
 from kh_main import *
 from kh_plot import *
 
-def init_static(lattice_size, lattice_flow_vecs):
+def init_periodic_pertub(lattice_size, lattice_flow_vecs):
     median_density_flow = 1.0
-    density_flow_ratio = 3.0 #higher/lower
-    #r*l = h with (h+l)/2 = m -> 2m - l = h = r*l -> l = 2m/(r+1)
-    lower_density_flow = 2*median_density_flow/(density_flow_ratio+1)
-    
+
     init_map = np.zeros((*lattice_size, lattice_flow_vecs.shape[1]))
-    init_map[:, :int(init_map.shape[1]/2),0] = lower_density_flow
-    init_map[:, int(init_map.shape[1]/2):,0] = density_flow_ratio*lower_density_flow
-    #init_map[:, :int(init_map.shape[1]/2),:] = lower_density_flow/lattice_flow_vecs.shape[1]
-    #init_map[:, int(init_map.shape[1]/2):,:] = (density_flow_ratio*lower_density_flow)/lattice_flow_vecs.shape[1]
+    
+    #Uniform density
+    init_map[:, :, 0] = median_density_flow
+    
+    #Periodic pertubation
+    ampl = 0.8
+    ang_freq = 2*np.pi*init_map.shape[1]/2
+    offset = 0.2
+    init_map[:, :, 2] = (ampl * median_density_flow * (np.sin(np.arange(0, init_map.shape[1])* ang_freq )+offset))[np.newaxis, :]
+    
     return init_map
 
-def init_uniform(lattice_size, lattice_flow_vecs):
-    median_density_flow = 1.0
-    density_flow_ratio = 3.0 #higher/lower
-    #r*l = h with (h+l)/2 = m -> 2m - l = h = r*l -> l = 2m/(r+1)
-    lower_density_flow = 2*median_density_flow/(density_flow_ratio+1)
-    
-    init_map = np.zeros((*lattice_size, lattice_flow_vecs.shape[1]))
-    init_map[:, :int(init_map.shape[1]/2),:] = lower_density_flow/lattice_flow_vecs.shape[1]
-    init_map[:, int(init_map.shape[1]/2):,:] = (density_flow_ratio*lower_density_flow)/lattice_flow_vecs.shape[1]
 
-    return init_map
 
 if __name__ == "__main__":
 
     # Dimensionless constants
-    LATTICE_SIZE = (10,10) # Canvas size 
+    LATTICE_SIZE = (50,50) # Canvas size 
     END_OF_TIME = 10 # Maximum time
 
     DATA_PATH = EXPERIMENTS_PATH + "data/" 
@@ -55,7 +48,7 @@ if __name__ == "__main__":
     
     # Main simulation procedure
     dfm = DensityFlowMap.D2Q9(lattice_size=LATTICE_SIZE, 
-                              map_init=init_uniform, 
+                              map_init=init_periodic_pertub, 
                               relaxation_coeffs=RELAXATION_COEFFS, 
                               alpha3 = ALPHA3, 
                               gamma4 = GAMMA4) 

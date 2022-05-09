@@ -20,8 +20,17 @@ def init_kelvin_helmholtz(lattice_size, lattice_flow_vecs):
     lower_density_flow = 2*median_density_flow/(density_flow_ratio+1)
     
     init_map = np.zeros((*lattice_size, lattice_flow_vecs.shape[1]))
-    init_map[:, :int(init_map.shape[1]/2),:] = lower_density_flow/lattice_flow_vecs.shape[1]
-    init_map[:, int(init_map.shape[1]/2):,:] = (density_flow_ratio*lower_density_flow)/lattice_flow_vecs.shape[1]
+    
+    occupied_dir_idx_up = [0,1] #1
+    occupied_dir_idx_down = [0,3] #3
+    
+    print(lattice_flow_vecs[:,occupied_dir_idx_up])
+    
+    #occupied_dir_idx_up = [0,1,5,8]
+    #occupied_dir_idx_down = [0,3,6,7]
+    
+    init_map[:, :int(init_map.shape[1]/2),occupied_dir_idx_down] = lower_density_flow/len(occupied_dir_idx_down)
+    init_map[:, int(init_map.shape[1]/2):,occupied_dir_idx_up] = (density_flow_ratio*lower_density_flow)/len(occupied_dir_idx_up)
 
     return init_map
 
@@ -29,17 +38,18 @@ def init_kelvin_helmholtz(lattice_size, lattice_flow_vecs):
 if __name__ == "__main__":
 
     # Dimensionless constants
-    LATTICE_SIZE = (80,80) # Canvas size 
-    END_OF_TIME = 50 # Maximum time
+    LATTICE_SIZE = (10,10) # Canvas size 
+    END_OF_TIME = 5 # Maximum time
 
     DATA_PATH = EXPERIMENTS_PATH + "data/" 
     DATA_FILENAME = "temp_data.hdf5"
     
-    RELAX_TIME = 4.0
-    RELAXATION_COEFFS = np.array([0.0, 1/RELAX_TIME, 1.1, 0.0 ,1.1, 0.0, 1.1, 1/RELAX_TIME, 1/RELAX_TIME])
-    #RELAXATION_COEFFS = np.array([0.0, 1/RELAX_TIME, 1/RELAX_TIME, 0.0 ,1/RELAX_TIME, 0.0, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME])
-    GAMMA4 = 1.1
-    ALPHA3 = 1.1
+    RELAX_TIME = 1/1.5
+    #RELAXATION_COEFFS = np.array([0.0, 1.5, 1.4, 0.0 ,1.5, 0.0, 0.0, 0.0, 0.0])
+    #RELAXATION_COEFFS = np.array([0.0, 1/RELAX_TIME, 1.1, 0.0 ,1.1, 0.0, 1.1, 1/RELAX_TIME, 1/RELAX_TIME])
+    RELAXATION_COEFFS = np.array([0.0, 1/RELAX_TIME, 1/RELAX_TIME, 0.0 ,1/RELAX_TIME, 0.0, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME])
+    GAMMA4 = -18
+    ALPHA3 = 4
     
     # Main simulation procedure
     dfm = DensityFlowMap.D2Q9(lattice_size=LATTICE_SIZE, 
@@ -48,7 +58,7 @@ if __name__ == "__main__":
                               alpha3 = ALPHA3, 
                               gamma4 = GAMMA4) 
     
-    lbm = LatticeBoltzmann(dfm)
+    lbm = LatticeBoltzmann([dfm])
     
     output = lbm.__run__(end_of_time=END_OF_TIME)
     

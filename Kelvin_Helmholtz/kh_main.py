@@ -48,19 +48,19 @@ def D2Q9_collision_matrix(c_densities, c_velocities,  relaxation_coeffs, equilib
     
     coll_mat[:,:,2,2] = -relaxation_coeffs[3-1]
     
-    coll_mat[:,:,1,3] = relaxation_coeffs[2-1]*equilib_coeffs['gamma2']*c_velocities[:,:,0] / 3
-    coll_mat[:,:,2,3] = relaxation_coeffs[3-1]*equilib_coeffs['gamma4']*c_velocities[:,:,0] / 3
+    coll_mat[:,:,1,3] = (relaxation_coeffs[2-1]*equilib_coeffs['gamma2']*c_velocities[:,:,0] / 3) / c_densities
+    coll_mat[:,:,2,3] = (relaxation_coeffs[3-1]*equilib_coeffs['gamma4']*c_velocities[:,:,0] / 3) / c_densities
     coll_mat[:,:,4,3] = relaxation_coeffs[5-1]*equilib_coeffs['c1'] / 2
-    coll_mat[:,:,7,3] = 3*relaxation_coeffs[8-1]*equilib_coeffs['gamma1']*c_velocities[:,:,0]
-    coll_mat[:,:,8,3] = 3*relaxation_coeffs[9-1]*equilib_coeffs['gamma3']*c_velocities[:,:,1] / 2
+    coll_mat[:,:,7,3] = (3*relaxation_coeffs[8-1]*equilib_coeffs['gamma1']*c_velocities[:,:,0]) / c_densities
+    coll_mat[:,:,8,3] = (3*relaxation_coeffs[9-1]*equilib_coeffs['gamma3']*c_velocities[:,:,1] / 2 ) / c_densities
     
     coll_mat[:,:,4,3] = -relaxation_coeffs[5-1]
     
-    coll_mat[:,:,1,4] = relaxation_coeffs[2-1]*equilib_coeffs['gamma2']*c_velocities[:,:,1] / 3
-    coll_mat[:,:,2,4] = relaxation_coeffs[3-1]*equilib_coeffs['gamma4']*c_velocities[:,:,1] / 3
+    coll_mat[:,:,1,4] = (relaxation_coeffs[2-1]*equilib_coeffs['gamma2']*c_velocities[:,:,1] / 3) / c_densities
+    coll_mat[:,:,2,4] = (relaxation_coeffs[3-1]*equilib_coeffs['gamma4']*c_velocities[:,:,1] / 3) / c_densities
     coll_mat[:,:,6,4] = relaxation_coeffs[7-1]*equilib_coeffs['c1'] / 2
-    coll_mat[:,:,7,4] = -3*relaxation_coeffs[8-1]*equilib_coeffs['gamma1']*c_velocities[:,:,1]
-    coll_mat[:,:,8,4] = 3*relaxation_coeffs[9-1]*equilib_coeffs['gamma3']*c_velocities[:,:,0] / 2
+    coll_mat[:,:,7,4] = (-3*relaxation_coeffs[8-1]*equilib_coeffs['gamma1']*c_velocities[:,:,1]) / c_densities
+    coll_mat[:,:,8,4] = (3*relaxation_coeffs[9-1]*equilib_coeffs['gamma3']*c_velocities[:,:,0] / 2) / c_densities
     
     coll_mat[:,:,6,6] = -relaxation_coeffs[7-1]
     coll_mat[:,:,7,7] = -relaxation_coeffs[8-1]
@@ -187,7 +187,8 @@ class DensityFlowMap:
                 raise ValueError(f"Exactly {lattice_flow_vecs.shape[1]} have to be provided!")
         else:
             raise ValueError(f"Parameter relaxation_coeffs should be integer or array of length {lattice_flow_vecs.shape[1]}")
-            
+        
+        #equilib_coeffs = {'c1': -2, 'alpha2': -8, 'alpha3': alpha3, 'gamma1': 2, 'gamma2': 18,'gamma3': 2, 'gamma4': gamma4}
         equilib_coeffs = {'c1': -2, 'alpha2': -8, 'alpha3': alpha3, 'gamma1': 2/3, 'gamma2': 18,'gamma3': 2/3, 'gamma4': gamma4}
 
         assert len(lattice_size) == 2
@@ -230,11 +231,11 @@ class LatticeBoltzmann:
     Defines a Lattice Boltzmann Model (LBM) from a given density flow map / lattice
     '''
     
-    def __init__(self, density_flow_map):
+    def __init__(self, density_flow_maps):
         '''
         ..
         '''
-        self.dfm = density_flow_map
+        self.dfm = density_flow_maps[0]
         self.speed_of_sound = 1/np.sqrt(3)
     
     def collision(self):
@@ -242,6 +243,30 @@ class LatticeBoltzmann:
         delta_map = np.einsum('mnij,mnj->mni', self.dfm.coll_op, c_map)
         print(delta_map)
         self.dfm.map = c_map + delta_map
+    
+    def direct_collision(self):
+        if self.dfm.lattice_type == 'D2Q9':
+            print(self.dfm.mom_space_transform.shape)
+            c_mom_map = np.einsum('kl,ijl->ijk', self.dfm.mom_space_transform,  self.dfm.map)
+            densities = self.dfm.densities()
+            velocities = self.dfm.velocities()
+            
+            def equilib_moments(dfm, densities, velocities):
+                av_density = np.average(densities)
+                eq_density = np.full(densities.shape, fill_value=av_density)
+                eq_energy = eq_density * dfm.equilib_coeffs['alpha2']*densities/4 + dfm.equilib_coeffs['gamma2']*(velocities[:,:,0]**2 + velocities[:,:,1]**2)/6 
+                eq_energy_sq = dfm.equilib_coeffs['alpha3']*densities + dfm.equilib_coeffs['gamma4']*(velocities[:,:,0]**2 + velocities[:,:,1]**2)/6
+                eq_mom_density = [velocities[:,:,0], velocities[:,:,1]]
+                eq_energy_flux = [dfm.equilib_coeffs['c1'] * velocities[:,:,0] / 2, dfm.equilib_coeffs['c1'] * velocities[:,:,1] / 2]
+                eq_vis_stress_xx = dfm.equilib_coeffs['gamma1']*(velocities[:,:,0]**2 - velocities[:,:,1]**2)/2
+                eq_vis_stress_xy = dfm.equilib_coeffs['gamma3']*(velocities[:,:,0]*velocities[:,:,1])/2
+                return np.stack((eq_density, eq_energy, eq_energy_sq, eq_mom_density[0], eq_energy_flux[0], eq_mom_density[1], eq_energy_flux[1], eq_vis_stress_xx, eq_vis_stress_xy), axis=2)
+            
+            eq_map = equilib_moments(self.dfm, densities, velocities)
+            n_mom_map = c_mom_map - (self.dfm.relaxation_coeffs * (c_mom_map - eq_map) )
+            self.dfm.map = np.einsum('kl,ijl->ijk', self.dfm.inv_mom_space_transform, n_mom_map)
+        else:
+            raise ValueError("Advection currently only supports D2Q9 lattices")
     
     def classical_collision(self):
         c_map = self.dfm.map
@@ -252,7 +277,7 @@ class LatticeBoltzmann:
                             1/36, 1/36, 1/36])
             velocities = self.dfm.velocities()
             densities =  self.dfm.densities()
-            for i in range(self.dfm.lattice_size[0]): # TO DO: improve efficiency
+            for i in range(self.dfm.lattice_size[0]): 
                 for j in range(self.dfm.lattice_size[1]):
                     term1 = np.dot(velocities[i,j,:], self.dfm.lattice_flow_vecs) / self.speed_of_sound**2
                     term2 = np.dot(velocities[i,j,:], self.dfm.lattice_flow_vecs)**2 / 2*self.speed_of_sound**4
@@ -270,7 +295,7 @@ class LatticeBoltzmann:
             self.dfm.map = np.einsum('ijn,jkn,kmn->imn', self.dfm.advec_ops[0], c_map, self.dfm.advec_ops[1])
         else:
             raise ValueError("Advection currently only supports D2Q9 lattices")
-    
+        
     def classical_advection(self):
         c_map = self.dfm.map
         new_map = np.zeros((*self.dfm.lattice_size, 9))
@@ -280,11 +305,13 @@ class LatticeBoltzmann:
         self.dfm.map = new_map
     
     def evolve(self):
-        #self.collision()
-        self.classical_collision()
+        #If multiple maps given => evolve separately
         
-        #self.advection()
-        self.classical_advection()
+        self.direct_collision()
+        #self.classical_collision()
+        
+        self.advection()
+        #self.classical_advection()
         
     
     def __run__(self, end_of_time):
@@ -294,9 +321,13 @@ class LatticeBoltzmann:
         output['time'] = time
         
         for t in tqdm(time):
-            self.evolve()
+            #Store previous time-step before (next) iteration
             output['density_per_time'].append(self.dfm.densities())
             output['net_velocity_per_time'].append(self.dfm.velocities())
+            
+            #Evolution of system
+            self.evolve()
+
         output['density_per_time'] = np.array(output['density_per_time'])
         output['net_velocity_per_time'] = np.array(output['net_velocity_per_time'])
         return output

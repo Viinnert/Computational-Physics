@@ -218,8 +218,8 @@ class DensityFlowMap:
         
         return np.einsum('ij,klj->kli', self.lattice_flow_vecs, self._map) / densities[:, :, np.newaxis]
     
-    def pressure(self):
-        return np.einsum('ij,ij,klj->kli', self.lattice_flow_vecs, self.lattice_flow_vecs, self._map)
+    def pressures(self):
+        return np.einsum('ij,ij,klj->kl', self.lattice_flow_vecs, self.lattice_flow_vecs, self._map)
     
     def moment_basis(self):
         '''
@@ -323,20 +323,20 @@ class LatticeBoltzmann:
     def __run__(self, end_of_time):
         time = np.arange(0, end_of_time, step=self.dfm.delta_t)
         
-        output = {'density_per_time': [], 'net_velocity_per_time': [], 'net_flow_vec_per_time': np.array([])}
+        output = {'density_per_time': [], 'pressure_per_time': [], 'net_velocity_per_time': [], 'net_flow_vec_per_time': np.array([])}
         output['time'] = time
         
         for t in tqdm(time):
             #Store previous time-step before (next) iteration
             output['density_per_time'].append(self.dfm.densities())
+            output['pressure_per_time'].append(self.dfm.pressures())
             output['net_velocity_per_time'].append(self.dfm.velocities())
             
             #Evolution of system
             self.evolve()
-            
-            print(self.dfm.pressure())
 
         output['density_per_time'] = np.array(output['density_per_time'])
+        output['pressure_per_time'] = np.array(output['pressure_per_time'])
         output['net_velocity_per_time'] = np.array(output['net_velocity_per_time'])
         return output
 

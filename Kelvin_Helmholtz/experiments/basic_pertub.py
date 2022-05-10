@@ -63,9 +63,9 @@ if __name__ == "__main__":
     save_to_file(results, data_file_path=DATA_PATH+DATA_FILENAME)
     
     # Plot:
-    plot_D2Q9_density_flow(DATA_PATH+DATA_FILENAME)
-        
-
+    #plot_D2Q9_density_flow(DATA_PATH+DATA_FILENAME)
+    #plot_D2Q9_pressure(DATA_PATH+DATA_FILENAME)
+    plot_D2Q9_velocity_profile(DATA_PATH+DATA_FILENAME)
 
         
 

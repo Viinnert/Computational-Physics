@@ -67,6 +67,8 @@ def plot_D2Q9_density_flow(data_file_path):
 
     delta_t = time[1] - time[0]
     
+    fig = plt.figure()
+    
     for (it, t) in enumerate(time):
         frame = density_over_time[it, :, :]
         veloc_vecs = velocity_over_time[it, :, :, :]
@@ -77,10 +79,10 @@ def plot_D2Q9_density_flow(data_file_path):
         plt.pcolormesh(x_mesh, y_mesh, frame.T, vmin=0, vmax=5, cmap='twilight')
         plt.draw()
         print(veloc_vecs[:,:,0])
-        plt.quiver(x_mesh, y_mesh, veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, frame.T, cmap='bone')
+        #plt.quiver(x_mesh, y_mesh, veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, frame.T, cmap='bone')
         #plt.streamplot(x_mesh, y_mesh, veloc_vecs[:,:,0], veloc_vecs[:,:,1], density=1, color=frame, cmap='bone')
         plt.title(f"Density at time {t}")
         plt.colorbar()
-        plt.show()
-        sleep(0.1)
-
+        plt.pause(0.1)
+        fig.clear()
+    sleep(100)

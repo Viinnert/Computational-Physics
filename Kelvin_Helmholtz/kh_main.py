@@ -101,6 +101,7 @@ class DensityFlowMap:
     mom_space_transform: np.ndarray
     relaxation_coeffs: np.ndarray
     equilib_coeffs: Dict
+    mass: float
     
     map_init: InitVar[Union[Callable, str]]
     mom_coll_op_construct: InitVar[Callable]
@@ -150,7 +151,7 @@ class DensityFlowMap:
     #    return self._map - other.map
     
     @classmethod
-    def D2Q9(dfm_class, lattice_size, map_init, relaxation_coeffs, alpha3, gamma4):
+    def D2Q9(dfm_class, lattice_size, mass, map_init, relaxation_coeffs, alpha3, gamma4):
         delta_t = 1.0
         delta_s = (1.0, 1.0) #delta_x, delta_y
         
@@ -196,6 +197,7 @@ class DensityFlowMap:
         inst = dfm_class(n_dim=2, 
                          lattice_size=lattice_size,
                          lattice_type='D2Q9',
+                         mass=mass,
                          delta_t=delta_t,
                          delta_s=delta_s,
                          lattice_flow_vecs=lattice_flow_vecs, 
@@ -216,6 +218,9 @@ class DensityFlowMap:
         
         return np.einsum('ij,klj->kli', self.lattice_flow_vecs, self._map) / densities[:, :, np.newaxis]
     
+    def pressure(self):
+        return np.einsum('ij,ij,klj->kli', self.lattice_flow_vecs, self.lattice_flow_vecs, self._map)
+    
     def moment_basis(self):
         '''
         Returns the density flow map in the moment basis:
@@ -231,35 +236,36 @@ class LatticeBoltzmann:
     Defines a Lattice Boltzmann Model (LBM) from a given density flow map / lattice
     '''
     
-    def __init__(self, density_flow_maps):
+    def __init__(self, density_flow_map):
         '''
         ..
         '''
-        self.dfm = density_flow_maps[0]
+        self.dfm = density_flow_map
         self.speed_of_sound = 1/np.sqrt(3)
     
     def collision(self):
         c_map = self.dfm.map
         delta_map = np.einsum('mnij,mnj->mni', self.dfm.coll_op, c_map)
-        print(delta_map)
+        #print(delta_map)
         self.dfm.map = c_map + delta_map
     
-    def direct_collision(self):
+    def direct_collision(self, velocities=None):
         if self.dfm.lattice_type == 'D2Q9':
             print(self.dfm.mom_space_transform.shape)
             c_mom_map = np.einsum('kl,ijl->ijk', self.dfm.mom_space_transform,  self.dfm.map)
             densities = self.dfm.densities()
-            velocities = self.dfm.velocities()
+            if velocities == None:
+                velocities = self.dfm.velocities()
             
             def equilib_moments(dfm, densities, velocities):
-                av_density = np.average(densities)
-                eq_density = np.full(densities.shape, fill_value=av_density)
-                eq_energy = eq_density * dfm.equilib_coeffs['alpha2']*densities/4 + dfm.equilib_coeffs['gamma2']*(velocities[:,:,0]**2 + velocities[:,:,1]**2)/6 
-                eq_energy_sq = dfm.equilib_coeffs['alpha3']*densities + dfm.equilib_coeffs['gamma4']*(velocities[:,:,0]**2 + velocities[:,:,1]**2)/6
-                eq_mom_density = [velocities[:,:,0], velocities[:,:,1]]
-                eq_energy_flux = [dfm.equilib_coeffs['c1'] * velocities[:,:,0] / 2, dfm.equilib_coeffs['c1'] * velocities[:,:,1] / 2]
-                eq_vis_stress_xx = dfm.equilib_coeffs['gamma1']*(velocities[:,:,0]**2 - velocities[:,:,1]**2)/2
-                eq_vis_stress_xy = dfm.equilib_coeffs['gamma3']*(velocities[:,:,0]*velocities[:,:,1])/2
+                density_0 = np.average(densities)
+                eq_density = densities
+                eq_energy = dfm.equilib_coeffs['alpha2']*densities/4 + (dfm.equilib_coeffs['gamma2']*(velocities[:,:,0]**2 + velocities[:,:,1]**2)/6) * (2*density_0 - densities) / (density_0**2)
+                eq_energy_sq = dfm.equilib_coeffs['alpha3']*densities + (dfm.equilib_coeffs['gamma4']*(velocities[:,:,0]**2 + velocities[:,:,1]**2)/6) * (2*density_0 - densities) / (density_0**2)
+                eq_mom_density = [(densities * velocities[:,:,0]), (densities * velocities[:,:,1])]
+                eq_energy_flux = [dfm.equilib_coeffs['c1'] * (densities * velocities[:,:,0]) / 2, dfm.equilib_coeffs['c1'] * (densities * velocities[:,:,1]) / 2]
+                eq_vis_stress_xx = (dfm.equilib_coeffs['gamma1']*((densities * velocities[:,:,0])**2 - (densities * velocities[:,:,1])**2)/2) * (2*density_0 - densities) / (density_0**2)
+                eq_vis_stress_xy = (dfm.equilib_coeffs['gamma3']*((densities * velocities[:,:,0])*(densities * velocities[:,:,1]))/2) * (2*density_0 - densities) / (density_0**2)
                 return np.stack((eq_density, eq_energy, eq_energy_sq, eq_mom_density[0], eq_energy_flux[0], eq_mom_density[1], eq_energy_flux[1], eq_vis_stress_xx, eq_vis_stress_xy), axis=2)
             
             eq_map = equilib_moments(self.dfm, densities, velocities)
@@ -327,7 +333,70 @@ class LatticeBoltzmann:
             
             #Evolution of system
             self.evolve()
+            
+            print(self.dfm.pressure())
 
         output['density_per_time'] = np.array(output['density_per_time'])
         output['net_velocity_per_time'] = np.array(output['net_velocity_per_time'])
+        return output
+
+
+class MultiComp_LatticeBoltzmann:
+    '''
+    Defines a Lattice Boltzmann Model (LBM) from a given density flow map / lattice
+    '''
+    
+    def __init__(self, density_flow_maps, interact_strength):
+        self.lb_models = [LatticeBoltzmann(dfm) for dfm in density_flow_maps]
+        self.interact_strength = interact_strength  
+    
+    def average_velocities(self):
+        norm = sum([lbm.dfm.mass * lbm.dfm.densities() for lbm in self.lb_models])
+        return sum([lbm.dfm.mass * lbm.dfm.velocities() for lbm in self.lb_models]) / norm
+
+    
+    def lattice_interact_force(self, densities_per_lattice):
+        forces_per_lattice = []
+        
+        for (idx, densities) in enumerate(densities_per_lattice):
+            D2Q9_interact_kernel = self.interact_strength * np.array([np.linalg.norm(lfv) for lfv in self.lb_models[idx].dfm.lattice_flow_vecs])
+            pot_per_prime_comp = []
+            for (idx_prime, densities_prime) in enumerate(densities_per_lattice):
+                if idx == idx_prime:
+                    pass #latttices don't self-interact
+                else:
+                    densities_prime_stack = np.tile(densities_prime, (1,1,D2Q9_interact_kernel.shape[0]))
+                    shifted_densities_prime = np.einsum('ijn,jkn,kmn->imn', self.lb_models[idx].dfm.advec_ops[0], densities_prime_stack, self.lb_models[idx].advec_ops[1])
+                    pot_per_direc = np.einsum('k,ijk->ij', D2Q9_interact_kernel, shifted_densities_prime)
+                    pot_per_prime_comp.append(pot_per_direc)
+            forces_per_lattice.append(-densities * sum(pot_per_prime_comp))
+        
+        return forces_per_lattice
+        
+    def evolve(self):
+        densities_per_lattice = []
+        av_velocities = self.average_velocities()
+        for lbm in self.lb_models:
+            lbm.direct_collision(av_velocities)
+            densities_per_lattice.append(lbm.dfm.densities())
+        
+        forces_per_lattice = self.lattice_interact_force(densities_per_lattice)
+        
+        for (idx, lbm) in enumerate(self.lb_models):
+            lbm.dfm.map = lbm.dfm.map + (forces_per_lattice[idx])[:,:, np.newaxis]
+            lbm.advection()
+            
+    
+    def __run__(self, end_of_time):
+        time = np.arange(0, end_of_time, step=self.dfm.delta_t)
+
+        output = {}
+        output['time'] = time
+        
+        for t in tqdm(time):
+            #Store previous time-step before (next) iteration
+
+            #Evolution of system
+            self.evolve()
+        
         return output

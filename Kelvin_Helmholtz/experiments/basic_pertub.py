@@ -25,7 +25,7 @@ def init_periodic_pertub(lattice_size, lattice_flow_vecs):
     ampl = 0.5
     ang_freq = 1/(init_map.shape[1]/2)
     offset = 0.2
-    init_map[:, :, 2] = ampl * median_density_flow * (np.sin(2*np.pi*np.arange(0, init_map.shape[1])* ang_freq +offset))[np.newaxis, :]
+    init_map[:, :, 2] = ampl + ampl * median_density_flow * (np.sin(2*np.pi*np.arange(0, init_map.shape[1])* ang_freq +offset))[np.newaxis, :]
     return init_map
 
 
@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     # Dimensionless constants
     LATTICE_SIZE = (50,50) # Canvas size 
-    END_OF_TIME = 50 # Maximum time
+    END_OF_TIME = 100 # Maximum time
 
     DATA_PATH = EXPERIMENTS_PATH + "data/" 
     DATA_FILENAME = "temp_data.hdf5"
@@ -63,10 +63,10 @@ if __name__ == "__main__":
     save_to_file(results, data_file_path=DATA_PATH+DATA_FILENAME)
     
     # Plot:
-    #plot_D2Q9_density_flow(DATA_PATH+DATA_FILENAME)
+    plot_D2Q9_density_flow(DATA_PATH+DATA_FILENAME)
     #plot_D2Q9_pressure(DATA_PATH+DATA_FILENAME)
-    plot_D2Q9_velocity_profile(DATA_PATH+DATA_FILENAME)
-
+    #plot_D2Q9_velocity_profile(DATA_PATH+DATA_FILENAME)
+    #plot_D2Q9_moments_vs_time(DATA_PATH+DATA_FILENAME)
         
 
         

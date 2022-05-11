@@ -227,10 +227,12 @@ class DensityFlowMap:
         (density / kin. energy / kin. energy squared / momentum density x / energy flux x
         / momentum space density y / energy flux y / viscous stress tensor diagonal / vis. stress tensor anti-diagonal 
         '''
-        return np.matmul(self.mom_space_transform, self._map)
-        
+        return np.einsum('ij,klj->kli', self.mom_space_transform, self._map)
     
-
+    def moments(self): 
+        c_mom_map = self.moment_basis()
+        moments = {'energy': c_mom_map[:,:,1],'mom_density': c_mom_map[:,:,[3,4]], 'energy_flux': c_mom_map[:,:,[5,6]], 'vis_stress': c_mom_map[:,:,[7,8]]}
+        return moments
 class LatticeBoltzmann:
     '''
     Defines a Lattice Boltzmann Model (LBM) from a given density flow map / lattice
@@ -324,13 +326,21 @@ class LatticeBoltzmann:
         time = np.arange(0, end_of_time, step=self.dfm.delta_t)
         
         output = {'density_per_time': [], 'pressure_per_time': [], 'net_velocity_per_time': [], 'net_flow_vec_per_time': np.array([])}
+        output['energy_per_time'], output['mom_density_per_time'], output['energy_flux_per_time'], output['vis_stress_per_time'] = [], [], [], []
         output['time'] = time
         
         for t in tqdm(time):
             #Store previous time-step before (next) iteration
             output['density_per_time'].append(self.dfm.densities())
             output['pressure_per_time'].append(self.dfm.pressures())
+            
             output['net_velocity_per_time'].append(self.dfm.velocities())
+            
+            c_moments = self.dfm.moments()
+            output['energy_per_time'].append(c_moments['energy'])
+            output['mom_density_per_time'].append(c_moments['mom_density'])
+            output['energy_flux_per_time'].append(c_moments['energy_flux'])
+            output['vis_stress_per_time'].append(c_moments['vis_stress'])
             
             #Evolution of system
             self.evolve()
@@ -338,6 +348,11 @@ class LatticeBoltzmann:
         output['density_per_time'] = np.array(output['density_per_time'])
         output['pressure_per_time'] = np.array(output['pressure_per_time'])
         output['net_velocity_per_time'] = np.array(output['net_velocity_per_time'])
+        output['energy_per_time'] = np.array(output['energy_per_time'])
+        output['mom_density_per_time'] = np.array(output['mom_density_per_time'])
+        output['energy_flux_per_time'] = np.array(output['energy_flux_per_time'])
+        output['vis_stress_per_time'] = np.array(output['vis_stress_per_time'])
+            
         return output
 
 

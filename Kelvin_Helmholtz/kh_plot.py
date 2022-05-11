@@ -15,11 +15,12 @@ from cmath import isnan
 import os
 import sys
 from time import sleep
+from timeit import repeat
 import numpy as np
 import h5py as hdf
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib import cm
+from matplotlib import cm, animation, colors
 
 # Initalize plot parameters
 params = {
@@ -39,6 +40,7 @@ params = {
     "figure.subplot.hspace": 0.12,
     "lines.markersize": 6,
     "lines.linewidth": 2.0,
+    'animation.html': 'html5',
 }
 mpl.rcParams.update(params)
 mpl.rc("font", **{"family": "sans-serif", "sans-serif": ["Times"]})
@@ -46,6 +48,50 @@ mpl.rc("font", **{"family": "sans-serif", "sans-serif": ["Times"]})
 def plot_D2Q9_density_flow(data_file_path):
     '''
     Plots the density of a time-evoluted density on the lattice over time
+    
+    Parameters
+  
+  ----------
+    data_file_path : str
+        File path to data file containing the time evoluted density
+    Returns
+    -------
+    None.
+    '''
+    time, density_over_time, velocity_over_time = np.array([]), np.array([]), np.array([])
+
+    with hdf.File(data_file_path,'r') as data_file:
+        data = data_file['time_sweep_output']
+        time = np.array(data['time'])
+        density_over_time = np.array(data['density_per_time'])
+        velocity_over_time = np.array(data['net_velocity_per_time'])
+        print(density_over_time.shape, velocity_over_time.shape)
+
+    delta_t = time[1] - time[0]
+    
+    fig = plt.figure()
+    
+    for (it, t) in enumerate(time):
+        frame = density_over_time[it, :, :]
+        veloc_vecs = velocity_over_time[it, :, :, :]
+        x_coord = np.arange(density_over_time.shape[1])
+        y_coord = np.arange(density_over_time.shape[2])
+        x_mesh, y_mesh = np.meshgrid(x_coord, y_coord)
+        
+        plt.pcolormesh(x_mesh, y_mesh, frame.T, vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten()),cmap='twilight')
+        plt.draw()
+        print(veloc_vecs[:,:,0])
+        plt.quiver(x_mesh, y_mesh, veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, frame.T,  norm=colors.Normalize(vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten())),cmap='twilight_shifted')
+        #plt.streamplot(x_mesh, y_mesh, veloc_vecs[:,:,0], veloc_vecs[:,:,1], density=1, color=frame, cmap='twilight_shifted')
+        plt.title(f"Density at time {t}")
+        plt.colorbar(cmap='twilight')
+        plt.pause(0.1)
+        fig.clear()
+    sleep(100)
+
+def animate_D2Q9_density_flow(data_file_path):
+    '''
+    Animates the density of a time-evoluted density on the lattice over time
     
     Parameters
     ----------
@@ -68,25 +114,40 @@ def plot_D2Q9_density_flow(data_file_path):
 
     delta_t = time[1] - time[0]
     
-    fig = plt.figure()
+    fig, ax = plt.subplots()
     
-    for (it, t) in enumerate(time):
+    ax.set_xlim((0, density_over_time.shape[1]))
+    ax.set_ylim((0, density_over_time.shape[2]))
+    
+    x_coord = np.arange(density_over_time.shape[1])
+    y_coord = np.arange(density_over_time.shape[2])
+    x_mesh, y_mesh = np.meshgrid(x_coord, y_coord)
+    
+    density_plt = ax.pcolormesh(x_mesh, y_mesh, np.zeros(x_mesh.shape), vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten()), cmap='twilight')
+    velocity_plt = ax.quiver(x_mesh, y_mesh, np.zeros(x_mesh.shape), np.zeros(x_mesh.shape), np.zeros(x_mesh.shape), norm=colors.Normalize(vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten())),cmap='twilight_shifted')
+    #velocity_plt, = plt.streamplot(x_mesh, y_mesh, [], [], density=1, color=frame, cmap='bone')
+    
+    def animate(it):
+        t = time[it]
         frame = density_over_time[it, :, :]
         veloc_vecs = velocity_over_time[it, :, :, :]
-        x_coord = np.arange(density_over_time.shape[1])
-        y_coord = np.arange(density_over_time.shape[2])
-        x_mesh, y_mesh = np.meshgrid(x_coord, y_coord)
         
-        plt.pcolormesh(x_mesh, y_mesh, frame.T, vmin=0, vmax=5, cmap='twilight')
-        plt.draw()
-        print(veloc_vecs[:,:,0])
-        plt.quiver(x_mesh, y_mesh, veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, frame.T, cmap='bone')
-        #plt.streamplot(x_mesh, y_mesh, veloc_vecs[:,:,0], veloc_vecs[:,:,1], density=1, color=frame, cmap='bone')
-        plt.title(f"Density at time {t}")
-        plt.colorbar()
-        plt.pause(0.1)
-        fig.clear()
-    sleep(100)
+        plt.suptitle(f"Density at time t = {t}")
+        density_plt.set_array(frame.T)
+        velocity_plt.set_UVC(veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, frame.T)
+        #velocity_plt.set_UVC(veloc_vecs[:,:,0], veloc_vecs[:,:,1])
+        return (density_plt, velocity_plt)
+    
+    def init_animation():
+        return animate(0)
+    
+    anim = animation.FuncAnimation(fig, animate, init_func=init_animation,frames=time.shape[0], interval=200, blit=True, repeat=False)
+    
+    plt.colorbar(cm.ScalarMappable(cmap='twilight'), ax=ax)
+    
+    data_path = (data_file_path[::-1].split('/', maxsplit=1)[-1])[::-1] + '/'
+    anim.save(data_path+'test_animation.gif', writer='imagemagick', fps=2)
+    plt.show()
 
 def plot_D2Q9_pressure(data_file_path):
     '''
@@ -119,13 +180,67 @@ def plot_D2Q9_pressure(data_file_path):
         y_coord = np.arange(pressure_over_time.shape[2])
         x_mesh, y_mesh = np.meshgrid(x_coord, y_coord)
         
-        plt.pcolormesh(x_mesh, y_mesh, pressure_frame.T, vmin=0, vmax=5, cmap='twilight')
+        plt.pcolormesh(x_mesh, y_mesh, pressure_frame.T, vmin=np.min(pressure_over_time.flatten()), vmax=np.max(pressure_over_time.flatten()), cmap='twilight')
         plt.draw()
         plt.title(f"Pressure at time {t}")
         plt.colorbar()
         plt.pause(0.1)
         fig.clear()
     sleep(100)
+
+
+def animate_D2Q9_pressure(data_file_path):
+    '''
+    Animates the pressure of a time-evoluted density on the lattice over time
+    
+    Parameters
+    ----------
+    data_file_path : str
+        File path to data file containing the time evoluted pressure
+
+    Returns
+    -------
+    None.
+
+    '''
+    time, pressure_over_time = np.array([]), np.array([])
+
+    with hdf.File(data_file_path,'r') as data_file:
+        data = data_file['time_sweep_output']
+        time = np.array(data['time'])
+        pressure_over_time = np.array(data['pressure_per_time'])
+        
+    delta_t = time[1] - time[0]
+    
+    x_coord = np.arange(pressure_over_time.shape[1])
+    y_coord = np.arange(pressure_over_time.shape[2])
+    x_mesh, y_mesh = np.meshgrid(x_coord, y_coord)
+        
+    pressure_plt = ax.pcolormesh(x_mesh, y_mesh, np.zeros(x_mesh.shape),vmin=np.min(pressure_over_time.flatten()), vmax=np.max(pressure_over_time.flatten()), cmap='twilight')
+        
+    fig, ax = plt.subplots()
+    
+    ax.set_xlim((0, pressure_over_time.shape[1]))
+    ax.set_ylim((0, pressure_over_time.shape[2]))
+    
+    def animate(it):
+        t = time[it]
+        pressure_frame = pressure_over_time[it, :, :]
+        plt.suptitle(f"Pressure at time {t}")
+        pressure_plt.set_array(pressure_frame.T)
+        return pressure_plt
+        
+    def init_animation():
+        return animate(0)
+    
+    anim = animation.FuncAnimation(fig, animate, init_func=init_animation,frames=time.shape[0], interval=200, blit=True, repeat=False)
+    
+    plt.colorbar(cm.ScalarMappable(cmap='twilight'), ax=ax)
+    
+    data_path = (data_file_path[::-1].split('/', maxsplit=1)[-1])[::-1] + '/'
+    anim.save(data_path+'test_pressure_animation.gif', writer='imagemagick', fps=2)
+    plt.show()
+
 
 def plot_D2Q9_velocity_profile(data_file_path):
     '''
@@ -167,4 +282,35 @@ def plot_D2Q9_velocity_profile(data_file_path):
         ax_yy.plot(y_coord, veloc_vec_yy, label=f"{t} s")
     plt.legend()
     plt.show()
+
+
+def plot_D2Q9_moments_vs_time(data_file_path):
+    '''
+    Plots the ....
     
+    Parameters
+    ----------
+    data_file_path : str
+        File path to data file containing ...
+
+    Returns
+    -------
+    None.
+
+    '''
+    time,energy_over_time, mom_density_over_time, energy_flux_over_time, vis_stress_over_time = np.array([]), np.array([]), np.array([]), np.array([]), np.array([])
+    
+    with hdf.File(data_file_path,'r') as data_file:
+        data = data_file['time_sweep_output']
+        time = np.array(data['time'])
+        energy_over_time = np.array(data['energy_per_time']) 
+        mom_density_over_time = np.array(data['mom_density_per_time'])
+        energy_flux_over_time = np.array(data['energy_flux_per_time'])
+        vis_stress_over_time = np.array(data['vis_stress_per_time'])
+    
+    fig, ((ax11, ax_12), (ax_21, ax_22)) = plt.subplots(nrows=2, ncols=2)
+    
+    ax11.plot(time, [np.sum(mom_density_over_time[:,:, it]) for (it,t) in enumerate(time) ])
+    
+    plt.show()
+        

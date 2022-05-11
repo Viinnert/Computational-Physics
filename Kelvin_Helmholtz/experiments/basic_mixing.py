@@ -38,29 +38,32 @@ def init_uniform(lattice_size, lattice_flow_vecs):
 
     return init_map
 
+
 if __name__ == "__main__":
 
     # Dimensionless constants
-    LATTICE_SIZE = (10,10) # Canvas size 
-    END_OF_TIME = 10 # Maximum time
+    LATTICE_SIZE = (50,50) # Canvas size 
+    END_OF_TIME = 50 # Maximum time
 
     DATA_PATH = EXPERIMENTS_PATH + "data/" 
     DATA_FILENAME = "temp_data.hdf5"
     
     #RELAXATION_COEFFS = np.array([0.0, 0.5, 1.1, 0.0 ,1.1, 0.0, 1.1, 0.5, 0.5])
-    RELAX_TIME = 10.0
+    RELAX_TIME = 10
+    #RELAXATION_COEFFS = np.array([1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME ,1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME])
     RELAXATION_COEFFS = np.array([0.0, 1/RELAX_TIME, 1/RELAX_TIME, 0.0 ,1/RELAX_TIME, 0.0, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME])
-    GAMMA4 = 1.0
-    ALPHA3 = 1.0
+    GAMMA4 = -18
+    ALPHA3 = 4
     
     # Main simulation procedure
     dfm = DensityFlowMap.D2Q9(lattice_size=LATTICE_SIZE, 
-                              map_init=init_uniform, 
+                              mass=1.0,
+                              map_init=init_static, 
                               relaxation_coeffs=RELAXATION_COEFFS, 
                               alpha3 = ALPHA3, 
                               gamma4 = GAMMA4) 
     
-    lbm = LatticeBoltzmann([dfm])
+    lbm = LatticeBoltzmann(dfm)
     
     output = lbm.__run__(end_of_time=END_OF_TIME)
     
@@ -70,9 +73,11 @@ if __name__ == "__main__":
     
     # Plot:
     plot_D2Q9_density_flow(DATA_PATH+DATA_FILENAME)
+    #plot_D2Q9_pressure(DATA_PATH+DATA_FILENAME)
+    #plot_D2Q9_velocity_profile(DATA_PATH+DATA_FILENAME)
+    #plot_D2Q9_moments_vs_time(DATA_PATH+DATA_FILENAME)
         
-
-
+     
         
 
         

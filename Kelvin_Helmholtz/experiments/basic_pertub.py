@@ -54,7 +54,8 @@ if __name__ == "__main__":
                               alpha3 = ALPHA3, 
                               gamma4 = GAMMA4) 
     
-    lbm = LatticeBoltzmann(dfm)
+    lbm = LatticeBoltzmann(density_flow_map=dfm,
+                           advect_BCs=semi_periodic_BCs)
     
     output = lbm.__run__(end_of_time=END_OF_TIME)
     

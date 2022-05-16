@@ -21,6 +21,8 @@ import h5py as hdf
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import cm, animation, colors
+from matplotlib.patches import FancyArrowPatch
+
 
 # Initalize plot parameters
 params = {
@@ -44,6 +46,37 @@ params = {
 }
 mpl.rcParams.update(params)
 mpl.rc("font", **{"family": "sans-serif", "sans-serif": ["Times"]})
+
+
+def plot_D2Q9_init_map(init_map, x_coord, y_coord):
+    fig,ax = plt.subplots(figsize=(15,8))
+    
+    #ax.set_xlim(150, 155)
+    #ax.set_ylim(100, 150) 
+
+    frame = np.sum(init_map, axis=-1)
+    print(frame)
+    print(init_map[:,:,5])
+    
+    delta_t = 1.0
+    delta_s = (1.0, 1.0) #delta_x, delta_y
+    lattice_flow_vecs = np.array([np.array([0,0]),
+                            *[np.array([int(np.cos((i-1)*np.pi/2)) * delta_s[0]/delta_t,int(np.sin((i-1)*np.pi/2)) * delta_s[1]/delta_t]) for i in range(1,5)],
+                            *[np.array([int(np.sign(np.cos((2*j-9)*np.pi/4))) * delta_s[0]/delta_t, int(np.sign(np.sin((2*j-9)*np.pi/4))) * delta_s[1]/delta_t]) for j in range(5,9)],
+                            ]).T
+    
+    veloc_vecs =  np.einsum('ij,klj->kli', lattice_flow_vecs, init_map) / frame[:, :, np.newaxis]
+
+    x_mesh, y_mesh = np.meshgrid(x_coord, y_coord)
+        
+    ax.pcolormesh(x_mesh, y_mesh, frame.T, vmin=0.0, vmax=8.0,cmap='twilight_shifted')
+    plt.draw()
+    #print(veloc_vecs[:,:,0])
+    #ax.quiver(x_mesh, y_mesh, veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, frame.T,  norm=colors.Normalize(vmin=np.min(frame.flatten()), vmax=np.max(frame.flatten())),cmap='twilight_shifted')
+    ax.streamplot(x_mesh, y_mesh, veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, density=2, color=frame.T, norm=colors.Normalize(vmin=np.min(frame.flatten()), vmax=np.max(frame.flatten())), cmap='twilight_shifted')
+    plt.colorbar(cm.ScalarMappable(cmap='twilight_shifted'), ax=ax)
+
+    plt.show()
 
 def plot_D2Q9_density_flow(data_file_path):
     '''
@@ -69,7 +102,17 @@ def plot_D2Q9_density_flow(data_file_path):
 
     delta_t = time[1] - time[0]
     
-    fig = plt.figure()
+    fig,ax = plt.subplots(figsize=(16,9))
+    
+    v = (np.min(density_over_time.flatten()), np.max(density_over_time.flatten()))
+    print("v: ", v)
+    v = (0.0, 6.0)
+    plt.colorbar(cm.ScalarMappable(cmap='plasma', norm=colors.Normalize(vmin=v[0], vmax=v[1])), ax=ax)
+
+    #ax.set_xlim(150, 155)
+    #ax.set_ylim(100, 150) 
+
+    
     
     for (it, t) in enumerate(time):
         frame = density_over_time[it, :, :]
@@ -78,15 +121,15 @@ def plot_D2Q9_density_flow(data_file_path):
         y_coord = np.arange(density_over_time.shape[2])
         x_mesh, y_mesh = np.meshgrid(x_coord, y_coord)
         
-        plt.pcolormesh(x_mesh, y_mesh, frame.T, vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten()),cmap='twilight')
+        ax.pcolormesh(x_mesh, y_mesh, frame.T, vmin=v[0], vmax=v[1],cmap='plasma')
         plt.draw()
-        print(veloc_vecs[:,:,0])
-        plt.quiver(x_mesh, y_mesh, veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, frame.T,  norm=colors.Normalize(vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten())),cmap='twilight_shifted')
-        #plt.streamplot(x_mesh, y_mesh, veloc_vecs[:,:,0], veloc_vecs[:,:,1], density=1, color=frame, cmap='twilight_shifted')
-        plt.title(f"Density at time {t}")
-        plt.colorbar(cmap='twilight')
-        plt.pause(0.1)
-        fig.clear()
+        print(np.min(frame))
+        #ax.quiver(x_mesh, y_mesh, veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, frame.T,  norm=colors.Normalize(vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten())),cmap='twilight_shifted')
+        ax.streamplot(x_mesh, y_mesh, veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, density=2, color='blue') #color=frame.T, cmap='twilight_shifted')
+        ax.set_title(f"Density at time {t}")
+        plt.pause(0.2)
+        ax.cla()
+        #fig.clear()
     sleep(100)
 
 def animate_D2Q9_density_flow(data_file_path):
@@ -114,18 +157,21 @@ def animate_D2Q9_density_flow(data_file_path):
 
     delta_t = time[1] - time[0]
     
-    fig, ax = plt.subplots()
+    fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(7,7))
     
-    ax.set_xlim((0, density_over_time.shape[1]))
-    ax.set_ylim((0, density_over_time.shape[2]))
+    ax1.set_xlim((0, density_over_time.shape[1]))
+    ax1.set_ylim((0, density_over_time.shape[2]))
+    ax2.set_xlim((0, density_over_time.shape[1]))
+    ax2.set_ylim((0, density_over_time.shape[2])) 
     
     x_coord = np.arange(density_over_time.shape[1])
     y_coord = np.arange(density_over_time.shape[2])
     x_mesh, y_mesh = np.meshgrid(x_coord, y_coord)
     
-    density_plt = ax.pcolormesh(x_mesh, y_mesh, np.zeros(x_mesh.shape), vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten()), cmap='twilight')
-    velocity_plt = ax.quiver(x_mesh, y_mesh, np.zeros(x_mesh.shape), np.zeros(x_mesh.shape), np.zeros(x_mesh.shape), norm=colors.Normalize(vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten())),cmap='twilight_shifted')
-    #velocity_plt, = plt.streamplot(x_mesh, y_mesh, [], [], density=1, color=frame, cmap='bone')
+    density_plt = ax1.pcolormesh(x_mesh, y_mesh, np.zeros(x_mesh.shape), vmin=np.min(density_over_time[0,:,:].flatten()), vmax=np.max(density_over_time[0, :,:].flatten()), cmap='plasma')
+    #velocity_plt = ax.quiver(x_mesh, y_mesh, np.zeros(x_mesh.shape), np.zeros(x_mesh.shape), np.zeros(x_mesh.shape), norm=colors.Normalize(vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten())),cmap='twilight_shifted')
+    global velocity_plt
+    velocity_plt = ax2.streamplot(x_mesh, y_mesh, np.zeros(x_mesh.shape), np.zeros(y_mesh.shape)) #color=[[]], density=1, norm=colors.Normalize(vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten())),cmap='twilight_shifted')
     
     def animate(it):
         t = time[it]
@@ -133,20 +179,43 @@ def animate_D2Q9_density_flow(data_file_path):
         veloc_vecs = velocity_over_time[it, :, :, :]
         
         plt.suptitle(f"Density at time t = {t}")
-        density_plt.set_array(frame.T)
-        velocity_plt.set_UVC(veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, frame.T)
-        #velocity_plt.set_UVC(veloc_vecs[:,:,0], veloc_vecs[:,:,1])
-        return (density_plt, velocity_plt)
+        #density_plt.set_array(frame.T)
+        ax1.cla()
+        density_plt = ax1.pcolormesh(x_mesh, y_mesh, frame.T, vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten()), cmap='plasma')
+    
+        #velocity_plt.set_UVC(veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, frame.T)
+        #velocity_plt.set_UVC(veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T)
+        #return density_plt
+    
+    def animate_streamplot(it):
+        ax2.cla()
+
+        frame = density_over_time[it, :, :]
+        veloc_vecs = velocity_over_time[it, :, :, :]
+        
+        #plt.suptitle(f"Density at time t = {t}")
+        #density_plt.set_array(frame.T)
+        #velocity_plt.set_UVC(veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, frame.T)
+        #velocity_plt.set_UVC(veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T)
+        
+        velocity_plt = ax2.streamplot(x_mesh, y_mesh, veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T) #color=[[]], density=1, norm=colors.Normalize(vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten())),cmap='twilight_shifted')
     
     def init_animation():
         return animate(0)
     
-    anim = animation.FuncAnimation(fig, animate, init_func=init_animation,frames=time.shape[0], interval=200, blit=True, repeat=False)
+    def init_streamplot_animation():
+        return animate_streamplot(0)
     
-    plt.colorbar(cm.ScalarMappable(cmap='twilight'), ax=ax)
+    #anim = animation.FuncAnimation(fig, animate, init_func=init_animation,frames=time.shape[0], interval=200, blit=True, repeat=False)
+    anim = animation.FuncAnimation(fig, animate, init_func=init_animation,frames=time.shape[0], interval=80, blit=False, repeat=False)
+    anim2 = animation.FuncAnimation(fig, animate_streamplot, init_func=init_streamplot_animation,frames=time.shape[0], interval=80, blit=False, repeat=False)
+    
+    plt.colorbar(cm.ScalarMappable(cmap='plasma',  norm=colors.Normalize(vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten()))), ax=ax1)
     
     data_path = (data_file_path[::-1].split('/', maxsplit=1)[-1])[::-1] + '/'
-    anim.save(data_path+'test_animation.gif', writer='imagemagick', fps=2)
+    #anim.save(data_path+'test_animation.gif', writer='imagemagick', fps=2)
+    #anim2.save(data_path+'test_animation2.gif', writer='imagemagick', fps=2)
+    
     plt.show()
 
 def plot_D2Q9_pressure(data_file_path):
@@ -180,7 +249,7 @@ def plot_D2Q9_pressure(data_file_path):
         y_coord = np.arange(pressure_over_time.shape[2])
         x_mesh, y_mesh = np.meshgrid(x_coord, y_coord)
         
-        plt.pcolormesh(x_mesh, y_mesh, pressure_frame.T, vmin=np.min(pressure_over_time.flatten()), vmax=np.max(pressure_over_time.flatten()), cmap='twilight')
+        plt.pcolormesh(x_mesh, y_mesh, pressure_frame.T, vmin=np.min(pressure_over_time.flatten()), vmax=np.max(pressure_over_time.flatten()), cmap='plasma')
         plt.draw()
         plt.title(f"Pressure at time {t}")
         plt.colorbar()
@@ -216,7 +285,7 @@ def animate_D2Q9_pressure(data_file_path):
     y_coord = np.arange(pressure_over_time.shape[2])
     x_mesh, y_mesh = np.meshgrid(x_coord, y_coord)
         
-    pressure_plt = ax.pcolormesh(x_mesh, y_mesh, np.zeros(x_mesh.shape),vmin=np.min(pressure_over_time.flatten()), vmax=np.max(pressure_over_time.flatten()), cmap='twilight')
+    pressure_plt = ax.pcolormesh(x_mesh, y_mesh, np.zeros(x_mesh.shape),vmin=np.min(pressure_over_time.flatten()), vmax=np.max(pressure_over_time.flatten()), cmap='plasma')
         
     fig, ax = plt.subplots()
     
@@ -235,7 +304,7 @@ def animate_D2Q9_pressure(data_file_path):
     
     anim = animation.FuncAnimation(fig, animate, init_func=init_animation,frames=time.shape[0], interval=200, blit=True, repeat=False)
     
-    plt.colorbar(cm.ScalarMappable(cmap='twilight'), ax=ax)
+    plt.colorbar(cm.ScalarMappable(cmap='plasma'), ax=ax)
     
     data_path = (data_file_path[::-1].split('/', maxsplit=1)[-1])[::-1] + '/'
     anim.save(data_path+'test_pressure_animation.gif', writer='imagemagick', fps=2)
@@ -308,9 +377,15 @@ def plot_D2Q9_moments_vs_time(data_file_path):
         energy_flux_over_time = np.array(data['energy_flux_per_time'])
         vis_stress_over_time = np.array(data['vis_stress_per_time'])
     
-    fig, ((ax11, ax_12), (ax_21, ax_22)) = plt.subplots(nrows=2, ncols=2)
+    fig, ((ax_11, ax_12), (ax_21, ax_22)) = plt.subplots(nrows=2, ncols=2)
     
-    ax11.plot(time, [np.sum(mom_density_over_time[:,:, it]) for (it,t) in enumerate(time) ])
-    
+    ax_11.plot(time, [np.sum(energy_over_time[it, :,:]) for (it,t) in enumerate(time) ])
+    ax_12.plot(time, [np.sum(mom_density_over_time[it, :,:, 0]) for (it,t) in enumerate(time) ])
+    ax_12.plot(time, [np.sum(mom_density_over_time[it, :,:, 1]) for (it,t) in enumerate(time) ])
+    ax_21.plot(time, [np.sum(energy_flux_over_time[it, :,:, 0]) for (it,t) in enumerate(time) ])
+    ax_21.plot(time, [np.sum(energy_flux_over_time[it, :,:, 1]) for (it,t) in enumerate(time) ])
+    ax_22.plot(time, [np.sum(vis_stress_over_time[it, :,:, 0]) for (it,t) in enumerate(time) ])
+    ax_22.plot(time, [np.sum(vis_stress_over_time[it, :,:, 1]) for (it,t) in enumerate(time) ])
+
     plt.show()
         

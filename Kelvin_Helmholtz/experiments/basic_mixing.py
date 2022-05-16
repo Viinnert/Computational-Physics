@@ -22,6 +22,7 @@ def init_static(lattice_size, lattice_flow_vecs):
     init_map = np.zeros((*lattice_size, lattice_flow_vecs.shape[1]))
     init_map[:, :int(init_map.shape[1]/2),0] = lower_density_flow
     init_map[:, int(init_map.shape[1]/2):,0] = density_flow_ratio*lower_density_flow
+
     #init_map[:, :int(init_map.shape[1]/2),:] = lower_density_flow/lattice_flow_vecs.shape[1]
     #init_map[:, int(init_map.shape[1]/2):,:] = (density_flow_ratio*lower_density_flow)/lattice_flow_vecs.shape[1]
     return init_map
@@ -42,8 +43,8 @@ def init_uniform(lattice_size, lattice_flow_vecs):
 if __name__ == "__main__":
 
     # Dimensionless constants
-    LATTICE_SIZE = (50,50) # Canvas size 
-    END_OF_TIME = 50 # Maximum time
+    LATTICE_SIZE = (426, 240) # Canvas size 
+    END_OF_TIME = 100 # Maximum time
 
     DATA_PATH = EXPERIMENTS_PATH + "data/" 
     DATA_FILENAME = "temp_data.hdf5"
@@ -63,7 +64,8 @@ if __name__ == "__main__":
                               alpha3 = ALPHA3, 
                               gamma4 = GAMMA4) 
     
-    lbm = LatticeBoltzmann(dfm)
+    lbm = LatticeBoltzmann(density_flow_map=dfm,
+                           advect_BCs=semi_periodic_BCs)
     
     output = lbm.__run__(end_of_time=END_OF_TIME)
     
@@ -72,7 +74,9 @@ if __name__ == "__main__":
     save_to_file(results, data_file_path=DATA_PATH+DATA_FILENAME)
     
     # Plot:
-    plot_D2Q9_density_flow(DATA_PATH+DATA_FILENAME)
+    #plot_D2Q9_density_flow(DATA_PATH+DATA_FILENAME)
+    animate_D2Q9_density_flow(DATA_PATH+DATA_FILENAME)
+    
     #plot_D2Q9_pressure(DATA_PATH+DATA_FILENAME)
     #plot_D2Q9_velocity_profile(DATA_PATH+DATA_FILENAME)
     #plot_D2Q9_moments_vs_time(DATA_PATH+DATA_FILENAME)

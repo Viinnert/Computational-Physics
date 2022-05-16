@@ -37,7 +37,22 @@ def save_to_file(results, data_file_path):
                     #print(type(data), data.shape, key, output_kind)
                     datagroup.create_dataset(key, data=data)
 
-                 
+
+def semi_periodic_BCs(c_map):
+    #Reverse at y=-1 towards +y-direction
+    c_map[:,-1,2] += c_map[:,-1,4]
+    c_map[:,-1,8] += np.roll(c_map[:,-1,5], shift=1) #/\
+    c_map[:,-1,7] += np.roll(c_map[:,-1,6], shift=-1) #/\
+    c_map[:,-1,[4, 5, 6]] = 0
+    
+    #Reverse at y=0 the 3 flows towards -y-direction
+    c_map[:,0,4] += c_map[:,0,2]
+    c_map[:,0,6] += np.roll(c_map[:,0,7], shift=-1) #/\
+    c_map[:,0,5] += np.roll(c_map[:,0,8], shift=1) #/\
+    c_map[:,0,[2,7,8]] = 0
+    
+    return c_map
+     
 
 def D2Q9_collision_matrix(c_densities, c_velocities,  relaxation_coeffs, equilib_coeffs):
     coll_mat = np.zeros((*c_densities.shape, *relaxation_coeffs.shape, *relaxation_coeffs.shape)) #4D array
@@ -233,18 +248,21 @@ class DensityFlowMap:
         c_mom_map = self.moment_basis()
         moments = {'energy': c_mom_map[:,:,1],'mom_density': c_mom_map[:,:,[3,4]], 'energy_flux': c_mom_map[:,:,[5,6]], 'vis_stress': c_mom_map[:,:,[7,8]]}
         return moments
+    
+
 class LatticeBoltzmann:
     '''
     Defines a Lattice Boltzmann Model (LBM) from a given density flow map / lattice
     '''
     
-    def __init__(self, density_flow_map):
+    def __init__(self, density_flow_map, advect_BCs = None):
         '''
         ..
         '''
         self.dfm = density_flow_map
         self.speed_of_sound = 1/np.sqrt(3)
-    
+        self.advect_BCs = advect_BCs
+
     def collision(self):
         c_map = self.dfm.map
         delta_map = np.einsum('mnij,mnj->mni', self.dfm.coll_op, c_map)
@@ -259,18 +277,47 @@ class LatticeBoltzmann:
             if velocities == None:
                 velocities = self.dfm.velocities()
             
-            def equilib_moments(dfm, densities, velocities):
+            def equilib_moments_incompress(dfm, densities, velocities):
                 density_0 = np.average(densities)
-                eq_density = densities
-                eq_energy = dfm.equilib_coeffs['alpha2']*densities/4 + (dfm.equilib_coeffs['gamma2']*(velocities[:,:,0]**2 + velocities[:,:,1]**2)/6) * (2*density_0 - densities) / (density_0**2)
-                eq_energy_sq = dfm.equilib_coeffs['alpha3']*densities + (dfm.equilib_coeffs['gamma4']*(velocities[:,:,0]**2 + velocities[:,:,1]**2)/6) * (2*density_0 - densities) / (density_0**2)
-                eq_mom_density = [(densities * velocities[:,:,0]), (densities * velocities[:,:,1])]
-                eq_energy_flux = [dfm.equilib_coeffs['c1'] * (densities * velocities[:,:,0]) / 2, dfm.equilib_coeffs['c1'] * (densities * velocities[:,:,1]) / 2]
-                eq_vis_stress_xx = (dfm.equilib_coeffs['gamma1']*((densities * velocities[:,:,0])**2 - (densities * velocities[:,:,1])**2)/2) * (2*density_0 - densities) / (density_0**2)
-                eq_vis_stress_xy = (dfm.equilib_coeffs['gamma3']*((densities * velocities[:,:,0])*(densities * velocities[:,:,1]))/2) * (2*density_0 - densities) / (density_0**2)
+                eq_density = np.full(densities.shape, fill_value=density_0)
+                jx = (densities * velocities[:,:,0])
+                jy = (densities * velocities[:,:,1])
+                eq_energy = dfm.equilib_coeffs['alpha2']*densities/4 + (dfm.equilib_coeffs['gamma2']*(jx**2 + jy**2)/6) / density_0
+                eq_energy_sq = dfm.equilib_coeffs['alpha3']*densities + (dfm.equilib_coeffs['gamma4']*(jx**2 + jy**2)/6) / density_0
+                eq_mom_density = [jx, jy]
+                eq_energy_flux = [dfm.equilib_coeffs['c1'] * jx / 2, dfm.equilib_coeffs['c1'] * jy / 2]
+                eq_vis_stress_xx = (dfm.equilib_coeffs['gamma1']*(jx**2 - jy**2)/2) * density_0
+                eq_vis_stress_xy = (dfm.equilib_coeffs['gamma3']*(jx*jy)/2) / density_0
                 return np.stack((eq_density, eq_energy, eq_energy_sq, eq_mom_density[0], eq_energy_flux[0], eq_mom_density[1], eq_energy_flux[1], eq_vis_stress_xx, eq_vis_stress_xy), axis=2)
             
-            eq_map = equilib_moments(self.dfm, densities, velocities)
+            
+            def equilib_moments_compress(dfm, densities, velocities):
+                '''
+                density_0 = np.average(densities)
+                eq_density = densities
+                jx = (densities * velocities[:,:,0])
+                jy = (densities * velocities[:,:,1])
+                eq_energy = dfm.equilib_coeffs['alpha2']*densities/4 + (dfm.equilib_coeffs['gamma2']*(jx**2 + jy**2)/6) * (2*density_0 - densities) / (density_0**2)
+                eq_energy_sq = dfm.equilib_coeffs['alpha3']*densities + (dfm.equilib_coeffs['gamma4']*(jx**2 + jy**2)/6) * (2*density_0 - densities) / (density_0**2)
+                eq_mom_density = [jx, jy]
+                eq_energy_flux = [dfm.equilib_coeffs['c1'] * jx / 2, dfm.equilib_coeffs['c1'] * jy / 2]
+                eq_vis_stress_xx = (dfm.equilib_coeffs['gamma1']*(jx**2 - jy**2)/2) * (2*density_0 - densities) / (density_0**2)
+                eq_vis_stress_xy = (dfm.equilib_coeffs['gamma3']*(jx*jy)/2) * (2*density_0 - densities) / (density_0**2)
+                '''
+                density_0 = np.average(densities)
+                eq_density = densities
+                jx = densities * velocities[:,:,0]
+                jy = densities * velocities[:,:,1]
+                eq_energy = -2*densities + (3*(jx**2 + jy**2)/6) * (2*density_0 - densities) / (density_0)
+                eq_energy_sq = densities - 3*(jx**2 + jy**2)* (2*density_0 - densities) / (density_0)
+                eq_mom_density = [jx, jy]
+                eq_energy_flux = [- jx,- jy]
+                eq_vis_stress_xx = (jx**2 - jy**2) * (2*density_0 - densities) / (density_0)
+                eq_vis_stress_xy = (jx*jy) * (2*density_0 - densities) / (density_0)
+                
+                return np.stack((eq_density, eq_energy, eq_energy_sq, eq_mom_density[0], eq_energy_flux[0], eq_mom_density[1], eq_energy_flux[1], eq_vis_stress_xx, eq_vis_stress_xy), axis=2)
+            
+            eq_map = equilib_moments_compress(self.dfm, densities, velocities)
             n_mom_map = c_mom_map - (self.dfm.relaxation_coeffs * (c_mom_map - eq_map) )
             self.dfm.map = np.einsum('kl,ijl->ijk', self.dfm.inv_mom_space_transform, n_mom_map)
         else:
@@ -285,17 +332,24 @@ class LatticeBoltzmann:
                             1/36, 1/36, 1/36])
             velocities = self.dfm.velocities()
             densities =  self.dfm.densities()
-            for i in range(self.dfm.lattice_size[0]): 
-                for j in range(self.dfm.lattice_size[1]):
-                    term1 = np.dot(velocities[i,j,:], self.dfm.lattice_flow_vecs) / self.speed_of_sound**2
-                    term2 = np.dot(velocities[i,j,:], self.dfm.lattice_flow_vecs)**2 / 2*self.speed_of_sound**4
-                    term3 = np.dot(velocities[i,j,:], velocities[i,j,:]) / 2*self.speed_of_sound**2
-                    equilib_map[i,j,:] = densities[i,j] * weights * (1 + term1 + term2 - term3)
+
+            term1 = np.einsum("ijk,kl->ijl", velocities, self.dfm.lattice_flow_vecs) / (self.speed_of_sound**2)
+            term2 = np.einsum("ijk,kl->ijl", velocities, self.dfm.lattice_flow_vecs)**2 / (2*(self.speed_of_sound**4))
+            term3 = np.einsum("ijk,ijk->ij", velocities, velocities) / (2*(self.speed_of_sound**2))
+            equilib_map = np.einsum('ij,l,ijl->ijl', densities, weights, (1 + term1 + term2 - term3[:,:, np.newaxis]))
             return equilib_map
         
         equilib_map = get_equilib_map()
         
-        self.dfm.map = c_map + (equilib_map - c_map) * self.dfm.relaxation_coeffs[1]
+        self.dfm.map = c_map - (c_map - equilib_map) * self.dfm.relaxation_coeffs[1]
+    
+    def apply_avect_BCs(self):
+        if self.advect_BCs == None:
+            pass #Leave periodic BC's
+        elif callable(self.advect_BCs):
+            self.dfm.map = self.advect_BCs(self.dfm.map)
+        else:
+            raise ValueError("Unknown type of advection boundary conditions. Only callables of maps or None supported.")
     
     def advection(self):
         c_map = self.dfm.map
@@ -308,6 +362,7 @@ class LatticeBoltzmann:
         c_map = self.dfm.map
         new_map = np.zeros((*self.dfm.lattice_size, 9))
         for i in range(9):
+            print(f"Advecting in direction {i}")
             new_map[:,:,i] = np.roll(c_map[:,:,i], self.dfm.lattice_flow_vecs[:,i].astype(int), axis=(0,1))
 
         self.dfm.map = new_map
@@ -317,10 +372,13 @@ class LatticeBoltzmann:
         
         self.direct_collision()
         #self.classical_collision()
+        print("Completed collision")
         
-        self.advection()
-        #self.classical_advection()
+        self.apply_avect_BCs()
+        #self.advection()
+        self.classical_advection()
         
+        print("Completed advection")
     
     def __run__(self, end_of_time):
         time = np.arange(0, end_of_time, step=self.dfm.delta_t)

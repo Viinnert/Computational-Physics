@@ -26,12 +26,12 @@ from matplotlib.patches import FancyArrowPatch
 
 # Initalize plot parameters
 params = {
-    "axes.labelsize": 10,
-    "axes.titlesize": 10,
-    "font.size": 9,
-    "legend.fontsize": 9,
-    "xtick.labelsize": 10,
-    "ytick.labelsize": 10,
+    "axes.labelsize": 16,
+    "axes.titlesize": 24,
+    "font.size": 12,
+    "legend.fontsize": 14,
+    "xtick.labelsize": 12,
+    "ytick.labelsize": 12,
     "text.usetex": False,
     "figure.figsize": (10, 10),
     "figure.subplot.left": 0.14,
@@ -40,24 +40,20 @@ params = {
     "figure.subplot.top": 0.99,
     "figure.subplot.wspace": 0.15,
     "figure.subplot.hspace": 0.12,
-    "lines.markersize": 6,
-    "lines.linewidth": 2.0,
+    "lines.markersize": 8,
+    "lines.linewidth": 4.0,
     'animation.html': 'html5',
 }
 mpl.rcParams.update(params)
-mpl.rc("font", **{"family": "sans-serif", "sans-serif": ["Times"]})
-
 
 def plot_D2Q9_init_map(init_map, x_coord, y_coord):
-    fig,ax = plt.subplots(figsize=(15,8))
+    fig,ax = plt.subplots(figsize=(14,7))
     
     #ax.set_xlim(150, 155)
     #ax.set_ylim(100, 150) 
 
     frame = np.sum(init_map, axis=-1)
-    print(frame)
-    print(init_map[:,:,5])
-    
+
     delta_t = 1.0
     delta_s = (1.0, 1.0) #delta_x, delta_y
     lattice_flow_vecs = np.array([np.array([0,0]),
@@ -78,7 +74,7 @@ def plot_D2Q9_init_map(init_map, x_coord, y_coord):
 
     plt.show()
 
-def plot_D2Q9_density_flow(data_file_path):
+def plot_D2_density_flow(data_file_path):
     '''
     Plots the density of a time-evoluted density on the lattice over time
     
@@ -100,19 +96,18 @@ def plot_D2Q9_density_flow(data_file_path):
         velocity_over_time = np.array(data['net_velocity_per_time'])
         print(density_over_time.shape, velocity_over_time.shape)
 
-    delta_t = time[1] - time[0]
+    #delta_t = time[1] - time[0]
     
-    fig,ax = plt.subplots(figsize=(16,9))
+    fig,ax = plt.subplots(figsize=(8,6))
     
     v = (np.min(density_over_time.flatten()), np.max(density_over_time.flatten()))
     print("v: ", v)
-    v = (0.0, 6.0)
+    v = (0.0, 4.0)
     plt.colorbar(cm.ScalarMappable(cmap='plasma', norm=colors.Normalize(vmin=v[0], vmax=v[1])), ax=ax)
 
     #ax.set_xlim(150, 155)
     #ax.set_ylim(100, 150) 
 
-    
     
     for (it, t) in enumerate(time):
         frame = density_over_time[it, :, :]
@@ -126,13 +121,16 @@ def plot_D2Q9_density_flow(data_file_path):
         print(np.min(frame))
         #ax.quiver(x_mesh, y_mesh, veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, frame.T,  norm=colors.Normalize(vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten())),cmap='twilight_shifted')
         ax.streamplot(x_mesh, y_mesh, veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, density=2, color='blue') #color=frame.T, cmap='twilight_shifted')
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
         ax.set_title(f"Density at time {t}")
-        plt.pause(0.2)
+        plt.pause(2.0)
         ax.cla()
         #fig.clear()
-    sleep(100)
+    print("Finished plot")
+    sleep(1000)
 
-def animate_D2Q9_density_flow(data_file_path):
+def animate_D2_density_flow(data_file_path):
     '''
     Animates the density of a time-evoluted density on the lattice over time
     
@@ -163,12 +161,20 @@ def animate_D2Q9_density_flow(data_file_path):
     ax1.set_ylim((0, density_over_time.shape[2]))
     ax2.set_xlim((0, density_over_time.shape[1]))
     ax2.set_ylim((0, density_over_time.shape[2])) 
+    ax1.set_xlabel("X")
+    ax1.set_ylabel("Y")
+    ax2.set_xlabel("X")
+    ax2.set_ylabel("Y")
     
     x_coord = np.arange(density_over_time.shape[1])
     y_coord = np.arange(density_over_time.shape[2])
     x_mesh, y_mesh = np.meshgrid(x_coord, y_coord)
     
-    density_plt = ax1.pcolormesh(x_mesh, y_mesh, np.zeros(x_mesh.shape), vmin=np.min(density_over_time[0,:,:].flatten()), vmax=np.max(density_over_time[0, :,:].flatten()), cmap='plasma')
+    v = (np.min(density_over_time.flatten()), np.max(density_over_time.flatten()))
+    print("v: ", v)
+    v = (0.0, 5.5)
+    
+    density_plt = ax1.pcolormesh(x_mesh, y_mesh, np.zeros(x_mesh.shape), vmin=v[0], vmax=v[1], cmap='plasma')
     #velocity_plt = ax.quiver(x_mesh, y_mesh, np.zeros(x_mesh.shape), np.zeros(x_mesh.shape), np.zeros(x_mesh.shape), norm=colors.Normalize(vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten())),cmap='twilight_shifted')
     global velocity_plt
     velocity_plt = ax2.streamplot(x_mesh, y_mesh, np.zeros(x_mesh.shape), np.zeros(y_mesh.shape)) #color=[[]], density=1, norm=colors.Normalize(vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten())),cmap='twilight_shifted')
@@ -181,7 +187,7 @@ def animate_D2Q9_density_flow(data_file_path):
         plt.suptitle(f"Density at time t = {t}")
         #density_plt.set_array(frame.T)
         ax1.cla()
-        density_plt = ax1.pcolormesh(x_mesh, y_mesh, frame.T, vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten()), cmap='plasma')
+        density_plt = ax1.pcolormesh(x_mesh, y_mesh, frame.T, vmin=v[0], vmax=v[1], cmap='plasma')
     
         #velocity_plt.set_UVC(veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T, frame.T)
         #velocity_plt.set_UVC(veloc_vecs[:,:,0].T, veloc_vecs[:,:,1].T)
@@ -207,18 +213,18 @@ def animate_D2Q9_density_flow(data_file_path):
         return animate_streamplot(0)
     
     #anim = animation.FuncAnimation(fig, animate, init_func=init_animation,frames=time.shape[0], interval=200, blit=True, repeat=False)
-    anim = animation.FuncAnimation(fig, animate, init_func=init_animation,frames=time.shape[0], interval=80, blit=False, repeat=False)
+    anim = animation.FuncAnimation(fig, animate, init_func=init_animation,frames=time.shape[0], interval=200, blit=False, repeat=False)
     anim2 = animation.FuncAnimation(fig, animate_streamplot, init_func=init_streamplot_animation,frames=time.shape[0], interval=80, blit=False, repeat=False)
     
     plt.colorbar(cm.ScalarMappable(cmap='plasma',  norm=colors.Normalize(vmin=np.min(density_over_time.flatten()), vmax=np.max(density_over_time.flatten()))), ax=ax1)
     
     data_path = (data_file_path[::-1].split('/', maxsplit=1)[-1])[::-1] + '/'
-    #anim.save(data_path+'test_animation.gif', writer='imagemagick', fps=2)
-    #anim2.save(data_path+'test_animation2.gif', writer='imagemagick', fps=2)
+    #anim.save(data_path+'test_animation.gif', writer='imagemagick', fps=0.6)
+    anim2.save(data_path+'test_animation.gif', writer='imagemagick', fps=0.6)
     
     plt.show()
 
-def plot_D2Q9_pressure(data_file_path):
+def plot_D2_pressure(data_file_path):
     '''
     Plots the pressure of a time-evoluted density on the lattice over time
     
@@ -252,13 +258,15 @@ def plot_D2Q9_pressure(data_file_path):
         plt.pcolormesh(x_mesh, y_mesh, pressure_frame.T, vmin=np.min(pressure_over_time.flatten()), vmax=np.max(pressure_over_time.flatten()), cmap='plasma')
         plt.draw()
         plt.title(f"Pressure at time {t}")
+        plt.xlabel("X")
+        plt.ylabel("Y")
         plt.colorbar()
-        plt.pause(0.1)
+        plt.pause(0.8)
         fig.clear()
     sleep(100)
 
 
-def animate_D2Q9_pressure(data_file_path):
+def animate_D2_pressure(data_file_path):
     '''
     Animates the pressure of a time-evoluted density on the lattice over time
     
@@ -291,6 +299,8 @@ def animate_D2Q9_pressure(data_file_path):
     
     ax.set_xlim((0, pressure_over_time.shape[1]))
     ax.set_ylim((0, pressure_over_time.shape[2]))
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
     
     def animate(it):
         t = time[it]
@@ -311,7 +321,7 @@ def animate_D2Q9_pressure(data_file_path):
     plt.show()
 
 
-def plot_D2Q9_velocity_profile(data_file_path):
+def plot_D2_velocity_profile(data_file_path):
     '''
     Plots the density of a time-evoluted density on the lattice over time
     
@@ -333,27 +343,42 @@ def plot_D2Q9_velocity_profile(data_file_path):
         velocity_over_time = np.array(data['net_velocity_per_time'])
         print(density_over_time.shape, velocity_over_time.shape)
 
-    delta_t = time[1] - time[0]
+    #delta_t = time[1] - time[0]
+    time_samples = time[::9]
     
     fig, ((ax_xx, ax_xy), (ax_yx, ax_yy)) = plt.subplots(nrows=2, ncols=2)
+    #fig, ax_yy = plt.subplots(nrows=1, ncols=1)
     
+    cmap = plt.cm.get_cmap("coolwarm", time_samples.shape[0])
+
     x_coord = np.arange(velocity_over_time.shape[1])
     y_coord = np.arange(velocity_over_time.shape[2])
 
-    for (it, t) in enumerate(time[::5]):
+    for (it, t) in enumerate(time_samples):
         veloc_vec_xx, veloc_vec_xy = np.mean(velocity_over_time[it, :, :, 0], axis=1), np.mean(velocity_over_time[it, :, :, 1], axis=1)
         veloc_vec_yx, veloc_vec_yy = np.mean(velocity_over_time[it, :, :, 0], axis=0), np.mean(velocity_over_time[it, :, :, 1], axis=0)
 
         veloc_vec_yx = velocity_over_time[it, 3, :, 0]
-        ax_xx.plot(x_coord, veloc_vec_xx, label=f"{t} s")
-        ax_xy.plot(x_coord, veloc_vec_xy, label=f"{t} s")
-        ax_yx.plot(y_coord, veloc_vec_yx, label=f"{t} s")
-        ax_yy.plot(y_coord, veloc_vec_yy, label=f"{t} s")
+        
+        ax_xx.plot(x_coord, veloc_vec_xx, label=f"{t} s", color=cmap(it))
+        ax_xx.set_xlabel("X")
+        ax_xx.set_ylabel(r"$\mathbf{U}_X$")
+        ax_xy.plot(x_coord, veloc_vec_xy, label=f"{t} s", color=cmap(it))
+        ax_xy.set_xlabel("X")
+        ax_xy.set_ylabel(r"$\mathbf{U}_Y$")
+        ax_yx.plot(y_coord, veloc_vec_yx, label=f"{t} s", color=cmap(it))
+        ax_yx.set_xlabel("Y")
+        ax_yx.set_ylabel(r"$\mathbf{U}_X$")
+        
+        ax_yy.plot(y_coord, veloc_vec_yy, label=f"{t} s", color=cmap(it))
+        ax_yy.set_xlabel("Y")
+        ax_yy.set_ylabel(r"$\mathbf{U}_Y$")    
     plt.legend()
+    plt.tight_layout()
     plt.show()
 
 
-def plot_D2Q9_moments_vs_time(data_file_path):
+def plot_D2_moments_vs_time(data_file_path):
     '''
     Plots the ....
     
@@ -368,6 +393,7 @@ def plot_D2Q9_moments_vs_time(data_file_path):
 
     '''
     time,energy_over_time, mom_density_over_time, energy_flux_over_time, vis_stress_over_time = np.array([]), np.array([]), np.array([]), np.array([]), np.array([])
+    density_over_time = np.array([])
     
     with hdf.File(data_file_path,'r') as data_file:
         data = data_file['time_sweep_output']
@@ -376,16 +402,32 @@ def plot_D2Q9_moments_vs_time(data_file_path):
         mom_density_over_time = np.array(data['mom_density_per_time'])
         energy_flux_over_time = np.array(data['energy_flux_per_time'])
         vis_stress_over_time = np.array(data['vis_stress_per_time'])
+        density_over_time = np.array(data['vis_stress_per_time'])
+        
+    plt.plot(time, [np.mean(density_over_time[it, :,:]) for (it,t) in enumerate(time) ])
+    plt.show()
     
-    fig, ((ax_11, ax_12), (ax_21, ax_22)) = plt.subplots(nrows=2, ncols=2)
+    fig, ((ax_11, ax_12), (ax_21, ax_22)) = plt.subplots(nrows=2, ncols=2, figsize=(7,8))
     
     ax_11.plot(time, [np.sum(energy_over_time[it, :,:]) for (it,t) in enumerate(time) ])
-    ax_12.plot(time, [np.sum(mom_density_over_time[it, :,:, 0]) for (it,t) in enumerate(time) ])
-    ax_12.plot(time, [np.sum(mom_density_over_time[it, :,:, 1]) for (it,t) in enumerate(time) ])
-    ax_21.plot(time, [np.sum(energy_flux_over_time[it, :,:, 0]) for (it,t) in enumerate(time) ])
-    ax_21.plot(time, [np.sum(energy_flux_over_time[it, :,:, 1]) for (it,t) in enumerate(time) ])
-    ax_22.plot(time, [np.sum(vis_stress_over_time[it, :,:, 0]) for (it,t) in enumerate(time) ])
-    ax_22.plot(time, [np.sum(vis_stress_over_time[it, :,:, 1]) for (it,t) in enumerate(time) ])
-
+    ax_11.set_xlabel("Time")
+    ax_11.set_ylabel("Total Kinetic Energy")
+    ax_11.legend()
+    ax_12.plot(time, [np.sum(mom_density_over_time[it, :,:, 0]) for (it,t) in enumerate(time) ], label=r"$j_x$")
+    ax_12.plot(time, [np.sum(mom_density_over_time[it, :,:, 1]) for (it,t) in enumerate(time) ], label=r"$j_y$")
+    ax_12.set_xlabel("Time")
+    ax_12.set_ylabel("Total Momentum Density")
+    ax_12.legend()
+    ax_21.plot(time, [np.sum(energy_flux_over_time[it, :,:, 0]) for (it,t) in enumerate(time) ], label=r"$q_x$")
+    ax_21.plot(time, [np.sum(energy_flux_over_time[it, :,:, 1]) for (it,t) in enumerate(time) ], label=r"$q_y$")
+    ax_21.set_xlabel("Time")
+    ax_21.set_ylabel("Energy Flux")
+    ax_21.legend()
+    ax_22.plot(time, [np.sum(vis_stress_over_time[it, :,:, 0]) for (it,t) in enumerate(time) ], label=r"$\pi_{xx}$")
+    ax_22.plot(time, [np.sum(vis_stress_over_time[it, :,:, 1]) for (it,t) in enumerate(time) ], label=r"$\pi_{xy}$")
+    ax_22.set_xlabel("Time")
+    ax_22.set_ylabel("Viscous Stress")
+    ax_22.legend()
+    plt.tight_layout()
     plt.show()
         

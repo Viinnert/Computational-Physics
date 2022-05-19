@@ -13,19 +13,37 @@ sys.path.insert(1, WORKDIR_PATH)
 from kh_main import *
 from kh_plot import *
 
-def init_periodic_pertub(lattice_size, lattice_flow_vecs):
-    median_density_flow = 1.0
+def init_periodic_pertub(lattice_size, lattice_flow_vecs, mom_space_transform, inv_mom_space_transform):
+    #Fix density, energy (/pressure) and velocities
+    density = 2.0
+    x_veloc = 0.2
+    y_veloc = 0.0
+    pressure = 0.2
 
-    init_map = np.zeros((*lattice_size, lattice_flow_vecs.shape[1]))
-    
-    #Uniform density
-    init_map[:, :, 0] = median_density_flow
-    
-    #Periodic pertubation
-    ampl = 0.5
-    ang_freq = 1/(init_map.shape[1]/2)
-    offset = 0.2
-    init_map[:, :, 2] = ampl + ampl * median_density_flow * (np.sin(2*np.pi*np.arange(0, init_map.shape[1])* ang_freq +offset))[np.newaxis, :]
+    #Initialize empty space:
+   
+    init_mom_map = np.zeros((*lattice_size, lattice_flow_vecs.shape[1]))
+    x_coord = np.arange(init_mom_map.shape[0])
+    y_coord = np.arange(init_mom_map.shape[1])
+
+    init_mom_map[:, :, 0] = density
+
+    #Periodic perturbation:
+    ampl = x_veloc
+    freq = 3* 1/(y_coord.shape[0])
+    offset = 0.0
+    periodic_y_perturb = ampl*(np.sin(2*np.pi*freq*y_coord + offset)[np.newaxis,:]) 
+    init_mom_map[:, :, 1] = np.tile(periodic_y_perturb, reps=(x_coord.shape[0],1))
+
+    init_mom_map[:, :, 2] = y_veloc
+
+    #Set pressure via energy:
+    pressure_perturb =  pressure *(np.sin(2*np.pi*freq*y_coord + offset)[np.newaxis,:]) 
+    init_mom_map[:, :, 3] = np.tile(pressure / density, reps=(x_coord.shape[0],1))
+
+    init_mom_map = D2Q16_set_nonconserv_moments(init_mom_map)
+    init_map = np.einsum('ij,klj->kli', inv_mom_space_transform, init_mom_map)
+
     return init_map
 
 
@@ -33,29 +51,22 @@ def init_periodic_pertub(lattice_size, lattice_flow_vecs):
 if __name__ == "__main__":
 
     # Dimensionless constants
-    LATTICE_SIZE = (50,50) # Canvas size 
-    END_OF_TIME = 100 # Maximum time
+    LATTICE_SIZE = (300,200) # Canvas size 
+    END_OF_TIME = 3000 # Maximum time
 
     DATA_PATH = EXPERIMENTS_PATH + "data/" 
     DATA_FILENAME = "temp_data.hdf5"
     
-    #RELAXATION_COEFFS = np.array([0.0, 0.5, 1.1, 0.0 ,1.1, 0.0, 1.1, 0.5, 0.5])
-    RELAX_TIME = 10
-    #RELAXATION_COEFFS = np.array([1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME ,1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME])
-    RELAXATION_COEFFS = np.array([0.0, 1/RELAX_TIME, 1/RELAX_TIME, 0.0 ,1/RELAX_TIME, 0.0, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME])
-    GAMMA4 = -18
-    ALPHA3 = 4
-    
+    RELAXATION_COEFFS =  1e-8 * np.array([1e5, 1e5, 1e5, 1e5, 6500, 1e5, 9e4, 9e4, 8e4, 1e5, 1e5, 1e5, 7e4, 8e3, 2.5e4, 1e5])
+
     # Main simulation procedure
-    dfm = DensityFlowMap.D2Q9(lattice_size=LATTICE_SIZE, 
+    dfm = DensityFlowMap.D2Q16(lattice_size=LATTICE_SIZE, 
                               mass=1.0,
                               map_init=init_periodic_pertub, 
-                              relaxation_coeffs=RELAXATION_COEFFS, 
-                              alpha3 = ALPHA3, 
-                              gamma4 = GAMMA4) 
+                              relaxation_coeffs=RELAXATION_COEFFS) 
     
     lbm = LatticeBoltzmann(density_flow_map=dfm,
-                           advect_BCs=semi_periodic_BCs)
+                           advect_BCs=None)
     
     output = lbm.__run__(end_of_time=END_OF_TIME)
     
@@ -64,10 +75,10 @@ if __name__ == "__main__":
     save_to_file(results, data_file_path=DATA_PATH+DATA_FILENAME)
     
     # Plot:
-    plot_D2Q9_density_flow(DATA_PATH+DATA_FILENAME)
-    #plot_D2Q9_pressure(DATA_PATH+DATA_FILENAME)
-    #plot_D2Q9_velocity_profile(DATA_PATH+DATA_FILENAME)
-    #plot_D2Q9_moments_vs_time(DATA_PATH+DATA_FILENAME)
+    #plot_D2_density_flow(DATA_PATH+DATA_FILENAME)
+    #plot_D2_pressure(DATA_PATH+DATA_FILENAME)
+    plot_D2_velocity_profile(DATA_PATH+DATA_FILENAME)
+    #plot_D2_moments_vs_time(DATA_PATH+DATA_FILENAME)
         
 
         

@@ -17,41 +17,46 @@ from kh_plot import *
 
 
 
-
-def init_kelvin_helmholtz(lattice_size, lattice_flow_vecs):
+def init_kelvin_helmholtz(lattice_size, lattice_flow_vecs, mom_space_transform, inv_mom_space_transform):
+    #Fix density, energy (/pressure) and velocities
     density_1 = 5.0
-    x_veloc_1 = 0.5
+    x_veloc_1 = 0.0
     density_2 = 2.0
-    x_veloc_2 = -0.5
+    x_veloc_2 = 0.0
+    pressure_1 = 2.5
+    pressure_2 = pressure_1
     
-    init_map = np.zeros((*lattice_size, lattice_flow_vecs.shape[1]))
-    x_coord = np.arange(init_map.shape[0])
-    y_coord = np.arange(init_map.shape[1])
-    
-    y_boundary_idx = int(y_coord.shape[0]/2)
-    density_trans_width = 1.0 #y_coord.shape[0]/1000
-    velocity_trans_width = 1.0 #y_coord.shape[0]/1000
-    
-    #1 = negative x-direction flow, 3=positive x-direction-flow
-    init_x_velocs = np.abs(np.tile((x_veloc_1 + x_veloc_2)/2 - ((x_veloc_1 - x_veloc_2)/2)*np.tanh((y_coord-y_boundary_idx) / velocity_trans_width)[np.newaxis,:], reps=(x_coord.shape[0],1)))
-    (init_map[:, :, 1])[init_x_velocs > 0.0] = np.abs(init_x_velocs[init_x_velocs > 0.0])
-    (init_map[:, :, 3])[init_x_velocs < 0.0] = np.abs(init_x_velocs[init_x_velocs < 0.0])
- 
-    #Periodic perturbation:
-    ampl = 0.02
-    freq = 1/(init_map.shape[0]/4)
-    offset = 0.0
-    perturb_decay_length = (1/np.sqrt(2*np.pi*freq)) # y_coord.shape[0]/2
-    periodic_perturb = ampl*(np.sin(2*np.pi*freq*x_coord + offset)[:, np.newaxis] * np.exp(-(y_coord - y_boundary_idx)**2 / (perturb_decay_length**2))[np.newaxis, :])
-    (init_map[:, :, 2])[periodic_perturb > 0.0] = np.abs(periodic_perturb[periodic_perturb > 0.0])
-    (init_map[:, :, 4])[periodic_perturb < 0.0] = np.abs(periodic_perturb[periodic_perturb < 0.0])
-    
-    #Complete rest of uniform density
-    init_target_density = np.tile(((density_1 + density_2)/2 - ((density_2 - density_1)/2)*np.tanh((y_coord-y_boundary_idx) / density_trans_width))[np.newaxis,:], reps=(x_coord.shape[0],1))
-    init_map[:, :, 0] = (init_target_density - np.sum(init_map, axis=-1))
+    #Initialize empty space:
+   
+    init_mom_map = np.zeros((*lattice_size, lattice_flow_vecs.shape[1]))
+    x_coord = np.arange(init_mom_map.shape[0])
+    y_coord = np.arange(init_mom_map.shape[1])
 
-    assert not any(init_map.flatten() < 0.0)
+    y_boundary_idx = int(y_coord.shape[0]/2)
+    density_trans_width = y_coord.shape[0]/1000
+    velocity_trans_width = y_coord.shape[0]/1000
     
+    init_target_density = np.tile(((density_1 + density_2)/2 - ((density_1 - density_2)/2)*np.tanh((y_coord-y_boundary_idx) / density_trans_width))[np.newaxis,:], reps=(x_coord.shape[0],1))
+    init_mom_map[:, :, 0] = init_target_density
+
+    init_x_velocs = np.tile((x_veloc_1 + x_veloc_2)/2 - ((x_veloc_1 - x_veloc_2)/2)*np.tanh((y_coord-y_boundary_idx) / velocity_trans_width)[np.newaxis,:], reps=(x_coord.shape[0],1))
+    init_mom_map[:, :, 1] = init_x_velocs
+    
+    #Set pressure via energy:
+    init_mom_map[:, y_boundary_idx:, 3] = pressure_1 / init_target_density[:, y_boundary_idx:]
+    init_mom_map[:, :y_boundary_idx, 3] = pressure_2 / init_target_density[:, :y_boundary_idx]
+
+    #Periodic perturbation:
+    ampl = 0.0
+    freq = 3.0 * 1/(x_coord.shape[0])
+    offset = 0.0
+    perturb_decay_length = 5*(1/np.sqrt(2*np.pi*freq)) # y_coord.shape[0]/2
+    periodic_y_perturb = ampl*(np.sin(2*np.pi*freq*x_coord + offset)[:, np.newaxis] * np.exp(-(y_coord - y_boundary_idx)**2 / (perturb_decay_length**2))[np.newaxis, :])
+    init_mom_map[:, :, 2] = periodic_y_perturb
+
+    init_mom_map = D2Q16_set_nonconserv_moments(init_mom_map)
+    init_map = np.einsum('ij,klj->kli', inv_mom_space_transform, init_mom_map)
+
     return init_map
 
 
@@ -59,26 +64,25 @@ if __name__ == "__main__":
 
     # Dimensionless constants
     #LATTICE_SIZE = (1280, 720) # Canvas size 
-    LATTICE_SIZE = (600, 800) # Canvas size  
-    END_OF_TIME = 100 # Maximum time
+    LATTICE_SIZE = (600, 500) # Canvas size  
+    END_OF_TIME = 800 # Maximum time
 
     DATA_PATH = EXPERIMENTS_PATH + "data/" 
-    DATA_FILENAME = "temp_data.hdf5"
+    DATA_FILENAME = "kh_temp_data.hdf5"
     
-    #RELAXATION_COEFFS = np.array([0.0, 0.5, 1.1, 0.0 ,1.1, 0.0, 1.1, 0.5, 0.5])
-    RELAX_TIME = 2
-    #RELAXATION_COEFFS = np.array([1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME ,1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME])
-    RELAXATION_COEFFS = np.array([0.0, 1/RELAX_TIME, 1/RELAX_TIME, 0.0 ,1/RELAX_TIME, 0.0, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME])
-    GAMMA4 = -18
-    ALPHA3 = 4
-    
+    RELAX_TIME = 0.9e1
+    #RELAXATION_COEFFS = np.array([0.0, 1/RELAX_TIME, 1/RELAX_TIME, 0.0 ,1/RELAX_TIME, 0.0, 1/RELAX_TIME, 1/RELAX_TIME, 1/RELAX_TIME])
+    RELAXATION_COEFFS = np.array([1/RELAX_TIME for i in range(16)])
+
+    RELAXATION_COEFFS = 0.2e-8 * np.array([1e5, 1e5, 1e5, 1e5, 6500, 1e5, 9e4, 9e4, 8e4, 1e5, 1e5, 1e5, 7e4, 8e3, 2.5e4, 1e5])
+    #RELAXATION_COEFFS =  2.2e-8 * np.array([1e5, 1e5, 1e5, 1e5, 6500, 1e5, 9e4, 9e4, 8e4, 1e5, 1e5, 1e5, 7e4, 8e3, 2.5e4, 1e5])
+
+
     # Main simulation procedure
-    dfm = DensityFlowMap.D2Q9(lattice_size=LATTICE_SIZE, 
+    dfm = DensityFlowMap.D2Q16(lattice_size=LATTICE_SIZE, 
                               mass=1.0,
                               map_init=init_kelvin_helmholtz, 
-                              relaxation_coeffs=RELAXATION_COEFFS, 
-                              alpha3 = ALPHA3, 
-                              gamma4 = GAMMA4) 
+                              relaxation_coeffs=RELAXATION_COEFFS) 
     
     lbm = LatticeBoltzmann(density_flow_map = dfm,
                            advect_BCs=None)
@@ -90,7 +94,7 @@ if __name__ == "__main__":
     save_to_file(results, data_file_path=DATA_PATH+DATA_FILENAME)
     
     # Plot:
-    plot_D2Q9_density_flow(DATA_PATH+DATA_FILENAME)
+    plot_D2_density_flow(DATA_PATH+DATA_FILENAME)
     #animate_D2Q9_density_flow(DATA_PATH+DATA_FILENAME)
     
     #plot_D2Q9_pressure(DATA_PATH+DATA_FILENAME)

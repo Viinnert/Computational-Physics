@@ -1,13 +1,20 @@
 """
 ###############################################################################
 Part of the Kelvin Helmholtz Instabilities project for the Computational physics course 2022.
-By Vincent Krabbenborg (XXXXXXX) & Thomas Rothe (1930443)
+By Vincent Krabbenborg (2029189) & Thomas Rothe (1930443)
 ################################################################################
-Defines and sets up 
+Defines and sets up routines for the Moment-Space Lattice Boltzmann method
 Classes:
-- 
+- DensityFlowMap
+- LatticeBoltzmann
+- MultiComp_LatticeBoltzmann
+
 Functions:
-- 
+- save_to_file
+- semi_periodic_BCs
+- D2Q16_set_nonconserv_moments
+- D2Q9_collision_matrix
+- D2Q9_advection_matrix
 ################################################################################
 """
 
@@ -26,24 +33,52 @@ from sympy import true
 from tqdm import tqdm
 
 def save_to_file(results, data_file_path):
+    '''
+    Stores collections of LBM results into a specified file.
+    
+    Parameters
+    ----------
+    results : Dict
+        Dictionary with keys being the datagroup name and values being output of specific LBM run, e.g. time sweep.
+    
+    data_file_path : str
+        File path (including filename) where the results should be stored.
+    
+    Returns
+    -------
+    None.
+    '''
     with hdf.File(data_file_path, "w") as datafile:
-        for output_kind in results.keys():
-            datagroup = datafile.create_group(output_kind)
-            for key in results[output_kind].keys():
+        for output_kind in results.keys(): #Iterate over seperate datasets in results
+            datagroup = datafile.create_group(output_kind) #Store each seperate dataset in own datagroup
+            for key in results[output_kind].keys(): 
+                #Store each kind of (physical) quantity into seperate HDF5 datasets
                 data = (results[output_kind])[key]
                 if isinstance(data, dict):
                     datagroup.create_dataset(key+'_mean', data=data['mean'])
                     datagroup.create_dataset(key+'_std', data=data['std'])
                 else:
-                    #print(type(data), data.shape, key, output_kind)
                     datagroup.create_dataset(key, data=data)
 
 
-def semi_periodic_BCs(c_map):
-    #Reverse at y=-1 towards +y-direction
+def D2Q9_semi_periodic_BCs(c_map):
+    '''
+    Applies a periodic (x-direction) and hard-wall (y-direction) Boundary Condition compatible with the D2Q9 LatticeBoltzmann class routines 
+    
+    Parameters
+    ----------
+    c_map : ndarray
+       State of current D2Q9 DensityFlowMap.map /after/ collision step and /before/ advection step in time evolution
+
+    Returns
+    -------
+    c_map : ndarray
+        Updated D2Q9 DensityFlowMap.map after hard-wall reflection along y; ready for safe advection with satisfied BCs
+    '''
+    #Reverse at y=-1 the 3 flows towards +y-direction 
     c_map[:,-1,2] += c_map[:,-1,4]
-    c_map[:,-1,8] += np.roll(c_map[:,-1,5], shift=1) #/\
-    c_map[:,-1,7] += np.roll(c_map[:,-1,6], shift=-1) #/\
+    c_map[:,-1,8] += np.roll(c_map[:,-1,5], shift=1) #/\ (incident angle = outgoing angle)
+    c_map[:,-1,7] += np.roll(c_map[:,-1,6], shift=-1) #/\ 
     c_map[:,-1,[4, 5, 6]] = 0
     
     #Reverse at y=0 the 3 flows towards -y-direction
@@ -56,6 +91,21 @@ def semi_periodic_BCs(c_map):
 
 
 def D2Q16_set_nonconserv_moments(c_mom_map):
+    '''
+    (Re)Set the values of the non-conserved moments in a moment space map to the equilibrium values based on the 4 (prefilled) conserved moment values
+    
+    Parameters
+    ----------
+    c_mom_map : ndarray
+       State of current D2Q16 DensityFlowMap in Moment Basis
+
+    Returns
+    -------
+    c_mom_map : ndarray
+        Updated / completed D2Q16 DensityFlowMap in Moment Basis
+    '''
+    
+    #Retrieve the (pre-)set conserved moments
     density = c_mom_map[:,:, 0] 
     mom_density_x, mom_density_y = c_mom_map[:,:, 1], c_mom_map[:,:, 2]
     energy = c_mom_map[:,:, 3]
@@ -78,6 +128,28 @@ def D2Q16_set_nonconserv_moments(c_mom_map):
 
 
 def D2Q9_collision_matrix(c_densities, c_velocities,  relaxation_coeffs, equilib_coeffs):
+    '''
+    Defines and returns the D2Q9 collision matrix (in moment basis) for incompressible flows 
+    
+    Parameters
+    ----------
+    c_densities : ndaaray
+        2D map with current (total) density at each lattice site 
+    
+    c_velocities : ndarray
+        2D map with current net velocity at each lattice site in terms of cartesian components (along the last axis)
+    
+    relaxation_coeffs : ndarray
+        Elements of diagonal relaxation matrix in moment basis ~ 1/relxation time
+    
+    equilib_coeffs : Dict
+        Value-collection of variational parameters to uniquely fix the equilibrium moments
+
+    Returns
+    -------
+    coll_mat : ndarray
+        2D collision matrix in moment space 
+    '''
     coll_mat = np.zeros((*c_densities.shape, *relaxation_coeffs.shape, *relaxation_coeffs.shape)) #4D array
     coll_mat[:,:,1,0] = (relaxation_coeffs[2-1]*equilib_coeffs['alpha2'] / 4) * c_densities
     coll_mat[:,:,2,0] = (relaxation_coeffs[3-1]*equilib_coeffs['alpha3'] / 4) * c_densities
@@ -107,14 +179,37 @@ def D2Q9_collision_matrix(c_densities, c_velocities,  relaxation_coeffs, equilib
     return coll_mat
 
 def D2Q9_advection_matrix(lattice_flow_vecs, lattice_size):
-    #Advection operator considering periodic BC's:
+    '''
+    Returns the D2Q9 advection matrix for matrix-based advection
+    The X and Y matrices only differ if lattice has non-equal sidelengths
+    
+    Parameters
+    ----------
+    lattice_flow_vecs : ndaaray
+        Collection of discrete velocity vectors in array collumns 
+    
+    lattice_size : tuple
+        Lattice sidelength / lattice sites per dimension
+    
+    Returns
+    -------
+    advec_mat_x : ndarray
+        Advection operator along X-direction; should be applied from left
+        
+    advec_mat_y : ndarray
+        Advection operator along Y-direction; should be applied from right
+    '''
     
     #Initialize total matrix by first lattice flow vector [0, 0] -> identity
     advec_mat_x = np.identity(lattice_size[0])[:,:, np.newaxis]
     advec_mat_y = np.identity(lattice_size[1])[:,:, np.newaxis]
     
+    
+    #Advection operator considering periodic BC's; 
     for i in range(1, lattice_flow_vecs.shape[1]):
         lfvec = lattice_flow_vecs[:,i]
+        
+        #Store for each discrete velocity direction the advection action on the identity operator
         loc_advec_x = np.roll(np.identity(lattice_size[0]), shift=int(lfvec[0]),axis=0)
         advec_mat_x = np.concatenate((advec_mat_x, loc_advec_x[:,:,np.newaxis]), axis=2)
         loc_advec_y = np.roll(np.identity(lattice_size[1]), shift=int(lfvec[1]), axis=1)
@@ -125,26 +220,31 @@ def D2Q9_advection_matrix(lattice_flow_vecs, lattice_size):
     
     return (advec_mat_x, advec_mat_y)
 
+
 @dataclass(frozen=False)
 class DensityFlowMap:
     '''
-    Defines a model map of density flow on a lattice used for the lattice boltzmann model
+    Defines a discrete velocity model map of density flows on a lattice 
+    Compatible with the LatticeBoltzmann model
     '''
-    n_dim: int
-    lattice_size: Tuple[int]
-    lattice_type: str
-    delta_t: float
-    delta_s: float
-    lattice_flow_vecs: np.ndarray
+    #Predfined
+    n_dim: int #Dimension of lattice
+    lattice_size: Tuple[int] #Number of lattice sites per dimension
+    lattice_type: str #Defines which dicrete velocity model is used, e.g. 'D2Q9'
+    delta_t: float #Timestep used in scaling velocities 
+    delta_s: float #Distance between nearest-neighbor lattice-sites used in scaling velocities 
+    lattice_flow_vecs: np.ndarray 
     mom_space_transform: np.ndarray
     relaxation_coeffs: np.ndarray
     equilib_coeffs: Dict
     mass: float
     
+    #Pass only on to post_init
     map_init: InitVar[Union[Callable, str]]
     mom_coll_op_construct: InitVar[Callable]
     advec_op_construct: InitVar[Callable]
     
+    #Attributes initialized and specified post-initialization
     _map: np.ndarray = field(init=False, repr=False)
     mom_coll_op: np.ndarray = field(init=False, repr=False)
     coll_op: np.ndarray = field(init=False, repr=False)
@@ -153,10 +253,38 @@ class DensityFlowMap:
 
 
     def __post_init__(self, map_init, mom_coll_op_construct, advec_op_construct):
+        '''
+        Initializes relevant (initial) quantities / components
+        Called automatically after DensityFLowMap initialization
         
+        Parameters
+        ----------
+        map_init : Callable or 'random'
+            Indicates how the DensityFlowMap should be initialized 
+            or gives callable which returns an initial map 
+            based on lattice size, discrete velocity vectors, momentum basis transform
+        
+        mom_coll_op_construct : Callable or None
+            Should point to a callable returning a collision operator
+            used in (linearized) matrix-based collision.
+            If None, (linearized) matrix-based collision is disabled
+            
+        advec_op_construct : Callable or None
+            Should point to a callable returning a set of advecting operators 
+            for each lattice dimension used in matrix-based advection/streaming.
+            If None, matrix-based advection is disabled      
+        
+        Returns
+        -------
+        
+        None
+        ''' 
+        
+        #Set inverse moment basis transform
         assert self.relaxation_coeffs.shape[0] == self.mom_space_transform.shape[0]
         self.inv_mom_space_transform = np.linalg.inv(self.mom_space_transform)
         
+        #Set an initial density flow configuration on the discrete velocity lattice
         if isinstance(map_init, Callable):
             self._map = map_init(self.lattice_size, self.lattice_flow_vecs, self.mom_space_transform, self.inv_mom_space_transform)
         elif map_init == "random":
@@ -164,9 +292,11 @@ class DensityFlowMap:
         else:
             raise ValueError("Unknown map initialization")
         
+        #Obtain initial values for key quantities based on initial density flow
         init_densities = self.densities()
         init_velocities = self.velocities(init_densities)
         
+        #Retrieve linearized collision and advection operators, if available.
         if mom_coll_op_construct != None:
             self.mom_coll_op = mom_coll_op_construct(init_densities, init_velocities, self.relaxation_coeffs, self.equilib_coeffs)
             self.coll_op = np.einsum('ij,mnjk,kl->mnil' ,self.inv_mom_space_transform, self.mom_coll_op, self.inv_mom_space_transform)
@@ -185,6 +315,7 @@ class DensityFlowMap:
     
     @map.setter
     def map(self, new_map):
+        #Check if new assigned map is compatible with current map
         if isinstance(new_map, np.ndarray):
             if new_map.shape == self._map.shape:
                 self._map = new_map
@@ -193,11 +324,41 @@ class DensityFlowMap:
         else:
             raise ValueError("The value of the provided (updated) map should be an numpy array")
     
-    #def __sub__(self, other):
-    #    return self._map - other.map
-    
     @classmethod
     def D2Q9(dfm_class, lattice_size, mass, map_init, relaxation_coeffs, alpha3, gamma4):
+        '''
+        (Alternative) Constructor for initalizing a prepared D2Q9 discrete velocity model as DensityFlowMap
+        Moment space transform and equilibrium derived from https://doi.org/10.1103/PhysRevE.61.6546
+        
+        Parameters
+        ----------
+        lattice_size : tuple
+            Number of lattice sites per dimension
+        
+        mass : float
+            Defines mass of individual fluid particles in number densities
+            Attribute ignored if used in single-fluid LatticeBoltzmann
+            
+        map_init : Callable or str
+            Indicates how the DensityFlowMap should be initialized 
+            or gives callable which returns an initial map 
+            based on lattice size, discrete velocity vectors, momentum basis transform
+        
+        relaxation_coeffs : ndarray or int
+            Elements of diagonal relaxation matrix in moment basis ~ 1/relxation time
+    
+        alpha3 : float
+            First equilibrium parameter in kinetic energy of the D2Q9 model in moment space
+            
+        gamma4 : float
+            Second equilibrium parameter in kinetic energy of the D2Q9 model in moment space
+        
+        Returns
+        -------
+        
+        None
+        '''
+        #Default time- and lattice-spacing
         delta_t = 1.0
         delta_s = (1.0, 1.0) #delta_x, delta_y
         
@@ -205,10 +366,7 @@ class DensityFlowMap:
                             *[np.array([int(np.cos((i-1)*np.pi/2)) * delta_s[0]/delta_t,int(np.sin((i-1)*np.pi/2)) * delta_s[1]/delta_t]) for i in range(1,5)],
                             *[np.array([int(np.sign(np.cos((2*j-9)*np.pi/4))) * delta_s[0]/delta_t, int(np.sign(np.sin((2*j-9)*np.pi/4))) * delta_s[1]/delta_t]) for j in range(5,9)],
                             ]).T
-        #lattice_flow_vecs = (np.array([0,0]), np.array([-1,0]), np.array([0,-1]),
-        #(wrong format!)     np.array([0,1]), np.array([1,0]), np.array([-1,-1]),
-        #                    np.array([-1,1]), np.array([1,-1]), np.array([1,1]))
-        
+
         mom_space_transform = np.array([[1, 1, 1, 1, 1, 1, 1, 1, 1],
                                          [-4, -1, -1, -1, -1, 2, 2, 2, 2],
                                          [4, -2, -2, -2, -2, 1, 1, 1, 1],
@@ -220,8 +378,8 @@ class DensityFlowMap:
                                          [0, 0, 0, 0, 0, 1, -1, 1, -1],
                                          ], dtype=float)
         
-        #Relaxation params = const. or different:  
-        if isinstance(relaxation_coeffs, int):
+        #Relaxation params = equal for all moments or individually chosen:  
+        if isinstance(relaxation_coeffs, float):
             relaxation_coeffs = np.full((lattice_flow_vecs.shape[1]), fill_value=relaxation_coeffs)
         elif isinstance(relaxation_coeffs, np.ndarray):
             if relaxation_coeffs.shape[0] == lattice_flow_vecs.shape[1]:
@@ -233,14 +391,14 @@ class DensityFlowMap:
             else:
                 raise ValueError(f"Exactly {lattice_flow_vecs.shape[1]} have to be provided!")
         else:
-            raise ValueError(f"Parameter relaxation_coeffs should be integer or array of length {lattice_flow_vecs.shape[1]}")
+            raise ValueError(f"Parameter relaxation_coeffs should be a float or array of length {lattice_flow_vecs.shape[1]}")
         
-        #equilib_coeffs = {'c1': -2, 'alpha2': -8, 'alpha3': alpha3, 'gamma1': 2, 'gamma2': 18,'gamma3': 2, 'gamma4': gamma4}
+        #Parameters for defining unique equilibrium moments 
         equilib_coeffs = {'c1': -2, 'alpha2': -8, 'alpha3': alpha3, 'gamma1': 2/3, 'gamma2': 18,'gamma3': 2/3, 'gamma4': gamma4}
 
         assert len(lattice_size) == 2
         
-        inst = dfm_class(n_dim=2, 
+        inst = dfm_class(n_dim=2,
                          lattice_size=lattice_size,
                          lattice_type='D2Q9',
                          mass=mass,
@@ -257,6 +415,33 @@ class DensityFlowMap:
 
     @classmethod
     def D2Q16(dfm_class, lattice_size, mass, map_init, relaxation_coeffs):
+        '''
+        (Alternative) Constructor for initalizing a prepared D2Q16 discrete velocity model as DensityFlowMap
+        Moment space transform and equilibrium derived from https://doi.org/10.1007/s11467-012-0269-5
+        
+        Parameters
+        ----------
+        lattice_size : tuple
+            Number of lattice sites per dimension
+        
+        mass : float
+            Defines mass of individual fluid particles in number densities
+            Attribute ignored if used in single-fluid LatticeBoltzmann
+            
+        map_init : Callable or str
+            Indicates how the DensityFlowMap should be initialized 
+            or gives callable which returns an initial map 
+            based on lattice size, discrete velocity vectors, momentum basis transform
+        
+        relaxation_coeffs : ndarray or int
+            Elements of diagonal relaxation matrix in moment basis ~ 1/relxation time
+    
+        Returns
+        -------
+        
+        None
+        '''
+        #Default time- and lattice-spacing
         delta_t = 1.0
         delta_s = (1.0, 1.0) #delta_x, delta_y
         
@@ -283,7 +468,7 @@ class DensityFlowMap:
                                          [1, 0, -1, 0, 7776, 0, -7776, 0, -16*np.sqrt(2), 16*np.sqrt(2), 16*np.sqrt(2), -16*np.sqrt(2), -243/np.sqrt(2), 243/np.sqrt(2), 243/np.sqrt(2), -243/np.sqrt(2)],
                                          [0, -1, 0, 1, 0, -7776, 0, 7776, 16*np.sqrt(2), 16*np.sqrt(2), -16*np.sqrt(2), -16*np.sqrt(2), 243/np.sqrt(2), 243/np.sqrt(2), -243/np.sqrt(2), -243/np.sqrt(2)]], dtype=float)
         
-        #Relaxation params = const. or different:  
+        #Relaxation params = equal for all moments or individually chosen:  
         if isinstance(relaxation_coeffs, int):
             relaxation_coeffs = np.full((lattice_flow_vecs.shape[1]), fill_value=relaxation_coeffs)
         elif isinstance(relaxation_coeffs, np.ndarray):
@@ -298,7 +483,8 @@ class DensityFlowMap:
         else:
             raise ValueError(f"Parameter relaxation_coeffs should be integer or array of length {lattice_flow_vecs.shape[1]}")
         
-        equilib_coeffs = {'c1': -2}
+        #Cited model doesn't support equilibrium parameters; 
+        equilib_coeffs = { }
 
         assert len(lattice_size) == 2
         
@@ -318,19 +504,44 @@ class DensityFlowMap:
         return inst
     
     def equilib_moments(self, c_mom_map, densities=None, velocities=None):
+        '''
+        (Alternative) Constructor for initalizing a prepared D2Q16 discrete velocity model as DensityFlowMap
+        Moment space transform and equilibrium derived from https://doi.org/10.1007/s11467-012-0269-5
+        
+        Parameters
+        ----------
+        c_mom_map : ndarray
+            Current State of the DensityFlowMap in the Moment Basis
+     
+        densities : ndarray
+            Total density at each lattice site from current map state
+            
+        velocities : ndarray
+            Net velocity at each lattice site from current map state with cartesian components along last axis
+             
+        relaxation_coeffs : ndarray or int
+            Elements of diagonal relaxation matrix in moment basis ~ 1/relxation time
+
+        Returns
+        -------
+        
+        eq_map : ndarray
+            Equilibrium map in the Moment Basis corresponding to the given current map, 
+        '''
+        
         if self.lattice_type == 'D2Q9':
-            ''' more general equilibrium:
-            density_0 = np.average(densities)
-            eq_density = np.full(densities.shape, fill_value=density_0)
-            jx = (densities * velocities[:,:,0])
-            jy = (densities * velocities[:,:,1])
-            eq_energy = self.equilib_coeffs['alpha2']*densities/4 + (self.equilib_coeffs['gamma2']*(jx**2 + jy**2)/6) / density_0
-            eq_energy_sq = self.equilib_coeffs['alpha3']*densities + (self.equilib_coeffs['gamma4']*(jx**2 + jy**2)/6) / density_0
-            eq_mom_density = [jx, jy]
-            eq_energy_flux = [self.equilib_coeffs['c1'] * jx / 2, self.equilib_coeffs['c1'] * jy / 2]
-            eq_vis_stress_xx = (self.equilib_coeffs['gamma1']*(jx**2 - jy**2)/2) * density_0
-            eq_vis_stress_xy = (self.equilib_coeffs['gamma3']*(jx*jy)/2) / density_0
-            '''
+            # more general equilibrium moments:
+            #density_0 = np.average(densities)
+            #eq_density = np.full(densities.shape, fill_value=density_0)
+            #jx = (densities * velocities[:,:,0])
+            #jy = (densities * velocities[:,:,1])
+            #eq_energy = self.equilib_coeffs['alpha2']*densities/4 + (self.equilib_coeffs['gamma2']*(jx**2 + jy**2)/6) / density_0
+            #eq_energy_sq = self.equilib_coeffs['alpha3']*densities + (self.equilib_coeffs['gamma4']*(jx**2 + jy**2)/6) / density_0
+            #eq_mom_density = [jx, jy]
+            #eq_energy_flux = [self.equilib_coeffs['c1'] * jx / 2, self.equilib_coeffs['c1'] * jy / 2]
+            #eq_vis_stress_xx = (self.equilib_coeffs['gamma1']*(jx**2 - jy**2)/2) * density_0
+            #eq_vis_stress_xy = (self.equilib_coeffs['gamma3']*(jx*jy)/2) / density_0
+            
             density_0 = np.average(densities)
             eq_density = densities
             jx = densities * velocities[:,:,0]
@@ -345,13 +556,13 @@ class DensityFlowMap:
             return np.stack((eq_density, eq_energy, eq_energy_sq, eq_mom_density[0], eq_energy_flux[0], eq_mom_density[1], eq_energy_flux[1], eq_vis_stress_xx, eq_vis_stress_xy), axis=2)
         
         elif self.lattice_type == 'D2Q16':
-            #'Conserved' moments: density, momentum density (x,y) and energy
+            #Set 'Conserved' moments: density, momentum density (x,y) and energy
             m1_eq = c_mom_map[:,:, 0] 
             m2_eq, m3_eq = c_mom_map[:,:, 1], c_mom_map[:,:, 2]
             m4_eq = c_mom_map[:,:, 3]
             print(np.max(m1_eq), np.max(m2_eq), np.max(m3_eq), np.max(m4_eq))
 
-            #Remaining non-conserved moments:
+            #Set remaining non-conserved moments in terms of conserved moments:
             m5_eq = (m2_eq**2 - m3_eq**2) / m1_eq
             m6_eq = m2_eq*m3_eq / m1_eq
             m7_eq = (m4_eq + m1_eq*m4_eq)*m2_eq / m1_eq
@@ -368,15 +579,54 @@ class DensityFlowMap:
             return np.stack((m1_eq, m2_eq, m3_eq, m4_eq, m5_eq, m6_eq, m7_eq, m8_eq, m9_eq, m10_eq, m11_eq, m12_eq, m13_eq, m14_eq, m15_eq, m16_eq), axis=2)
 
     def densities(self):
+        '''
+        Returns the total density for each lattice site based on the current map of the DensityFlowMap Instance
+             
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        
+        densities : ndarray
+            Total density at each lattice site
+        '''
+        
         return np.sum(self._map, axis=-1)
 
     def velocities(self, densities=None):
+        '''
+        Returns the total density for each lattice site based on the current map of the DensityFlowMap Instance
+             
+        Parameters
+        ----------
+        densities : ndarray
+            Current total density at each lattice site
+        
+        Returns
+        -------
+        velocities : ndarray
+            Net velocity at each lattice site with cartesian components along last axis
+        '''
         if not isinstance(densities, np.ndarray):
             densities = self.densities()
         
         return np.einsum('ij,klj->kli', self.lattice_flow_vecs, self._map) / densities[:, :, np.newaxis]
     
     def pressures(self):
+        '''
+        Returns the TD pressure for each lattice site based on the current map of the DensityFlowMap Instance
+             
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        pressures : ndarray
+            Pressure at each lattice site
+        '''
         return np.einsum('ij,ij,klj->kl', self.lattice_flow_vecs, self.lattice_flow_vecs, self._map)
     
     def moment_basis(self):
@@ -384,10 +634,32 @@ class DensityFlowMap:
         Returns the density flow map in the moment basis:
         (density / kin. energy / kin. energy squared / momentum density x / energy flux x
         / momentum space density y / energy flux y / viscous stress tensor diagonal / vis. stress tensor anti-diagonal 
+       
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        mom_map : ndarray
+            Transformed map in the Moment Basis of the current DensityFlowMap state
         '''
         return np.einsum('ij,klj->kli', self.mom_space_transform, self._map)
     
     def moments(self): 
+        '''
+        Returns the moments corresponding to the current density flow map in the moment basis
+        in an accessible dictionary format
+
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        moments : Dict
+            Collection of moment values per lattice site of the current DensityFlowMap instance
+        '''
         c_mom_map = self.moment_basis()
         if self.lattice_type == 'D2Q9':
             moments = {'energy': c_mom_map[:,:,1], 'mom_density': c_mom_map[:,:,[3,4]], 'energy_flux': c_mom_map[:,:,[5,6]], 'vis_stress': c_mom_map[:,:,[7,8]]}
@@ -404,38 +676,96 @@ class LatticeBoltzmann:
     
     def __init__(self, density_flow_map, advect_BCs = None):
         '''
-        ..
-        '''
+        Parameters
+        ----------
+        density_flow_map : DensityFlowMap
+            DensityFlowMap instance defining a discrete velocity lattice model
+            
+        advect_BCs : Callable or None
+            Should point to a callable which takes a (real-space) density flow map
+            and returns an updated map with applied boundary actions / conditions
+            If None, periodic boundary conditions in all directions are applied
+
+        Returns
+        -------
+        None
+        
+        ''' 
         self.dfm = density_flow_map
         self.speed_of_sound = 1/np.sqrt(3)
         self.advect_BCs = advect_BCs
 
     def collision(self):
+        '''
+        Apply matrix-based (/ linearized) collision / equilibriation in moment space if collision operator available
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        None
+        ''' 
         c_map = self.dfm.map
         delta_map = np.einsum('mnij,mnj->mni', self.dfm.coll_op, c_map)
         self.dfm.map = c_map + delta_map
     
     def direct_collision(self, velocities=None):
-
-        print(self.dfm.mom_space_transform.shape)
+        '''
+        Apply vectorized collision / equilibriation in moment space to the current density flow map
+        
+        Parameters
+        ----------
+        velocities : ndarray
+            Net velocity at each lattice site from current map state with cartesian components along last axis
+        
+        Returns
+        -------
+        None
+        ''' 
+        
+        #Transform map to moment space
         c_mom_map = np.einsum('kl,ijl->ijk', self.dfm.mom_space_transform,  self.dfm.map)
+        
         if self.dfm.lattice_type=='D2Q9':
             densities = self.dfm.densities()
             if velocities == None:
                 velocities = self.dfm.velocities()
 
+            #Yield (current) equilibrium moments / moment vector
             eq_map = self.dfm.equilib_moments(c_mom_map, densities, velocities)
             
+            #Apply collision by Maxwell collision in moment space
             n_mom_map = c_mom_map - (self.dfm.relaxation_coeffs * (c_mom_map - eq_map) )
+            
+            #Transform map back to real space
             self.dfm.map = np.einsum('kl,ijl->ijk', self.dfm.inv_mom_space_transform, n_mom_map)
+        
         elif self.dfm.lattice_type=='D2Q16':
+            
+            #Yield (current) equilibrium moments / moment vector
             eq_map = self.dfm.equilib_moments(c_mom_map)
             
+            #Apply collision by Maxwell collision in moment space
             n_mom_map = c_mom_map - (self.dfm.relaxation_coeffs * (c_mom_map - eq_map) )
+            
+            #Transform map back to real space
             self.dfm.map = np.einsum('kl,ijl->ijk', self.dfm.inv_mom_space_transform, n_mom_map)
 
 
     def classical_collision(self):
+        '''
+        Apply classical vectorized BGK collision / equilibriation in real space
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        None
+        ''' 
         if self.dfm.lattice_type=='D2Q9':
             c_map = self.dfm.map
             def get_equilib_map():
@@ -446,19 +776,33 @@ class LatticeBoltzmann:
                 velocities = self.dfm.velocities()
                 densities =  self.dfm.densities()
 
+                #Equilibrium distribution as given by Thijssen - Computational Physics Book - Chapter 14
                 term1 = np.einsum("ijk,kl->ijl", velocities, self.dfm.lattice_flow_vecs) / (self.speed_of_sound**2)
                 term2 = np.einsum("ijk,kl->ijl", velocities, self.dfm.lattice_flow_vecs)**2 / (2*(self.speed_of_sound**4))
                 term3 = np.einsum("ijk,ijk->ij", velocities, velocities) / (2*(self.speed_of_sound**2))
                 equilib_map = np.einsum('ij,l,ijl->ijl', densities, weights, (1 + term1 + term2 - term3[:,:, np.newaxis]))
                 return equilib_map
             
+            #Yield equilibrium desnity flow distribution on the discrete lattice in real space
             equilib_map = get_equilib_map()
             
+            #Apply BGK collision and update map directly
             self.dfm.map = c_map - (c_map - equilib_map) * self.dfm.relaxation_coeffs[1]
         else:
-            raise ValueError("Linearized Collision currently only supports D2Q9 lattices")
+            raise ValueError("Classical BGK Collision currently only supports D2Q9 lattices")
         
     def apply_avect_BCs(self):
+        '''
+        Apply boundary conditions if passed to the LBM model
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        None
+        ''' 
         if self.advect_BCs == None:
             pass #Leave periodic BC's
         elif callable(self.advect_BCs):
@@ -467,6 +811,17 @@ class LatticeBoltzmann:
             raise ValueError("Unknown type of advection boundary conditions. Only callables of maps or None supported.")
     
     def advection(self):
+        '''
+        Apply matrix-based advection / streaming in real space (slow) if advection operator available
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        None
+        ''' 
         c_map = self.dfm.map
         if self.dfm.lattice_type == 'D2Q9':
             self.dfm.map = np.einsum('ijn,jkn,kmn->imn', self.dfm.advec_ops[0], c_map, self.dfm.advec_ops[1])
@@ -475,15 +830,29 @@ class LatticeBoltzmann:
         
     def classical_advection(self):
         '''
-        c_map = self.dfm.map
-        new_map = np.zeros((*self.dfm.lattice_size, 9))
-        for i in range(9):
-            print(f"Advecting in direction {i}")
-            speed_ratio = self.dfm.delta_s[0]/self.dfm.delta_t
-            shift = (self.dfm.lattice_flow_vecs[:,i] / speed_ratio).astype(int)
-            new_map[:,:,i] = speed_ratio*np.roll(c_map[:,:,i], shift=shift, axis=(0,1)) + (1 - speed_ratio)*c_map[:,:,i]
-        self.dfm.map = new_map
-        '''
+        Apply classical* per-discrete-velocity-vector advection / streaming in real space
+        *=non-linearized
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        None
+        ''' 
+        
+        #Unmodified advection routine
+        #c_map = self.dfm.map
+        #new_map = np.zeros((*self.dfm.lattice_size, 9))
+        #for i in range(9):
+        #    print(f"Advecting in direction {i}")
+        #    speed_ratio = self.dfm.delta_s[0]/self.dfm.delta_t
+        #    shift = (self.dfm.lattice_flow_vecs[:,i] / speed_ratio).astype(int)
+        #    new_map[:,:,i] = speed_ratio*np.roll(c_map[:,:,i], shift=shift, axis=(0,1)) + (1 - speed_ratio)*c_map[:,:,i]
+        #self.dfm.map = new_map
+        
+        #Modified advection routine for different timesteps / velocity scaling
         c_map = self.dfm.map
         new_map = np.zeros((*self.dfm.lattice_size, self.dfm.lattice_flow_vecs.shape[1]))
         for i in range(self.dfm.lattice_flow_vecs.shape[1]):
@@ -491,33 +860,67 @@ class LatticeBoltzmann:
             speed_ratio = self.dfm.delta_s[0]/self.dfm.delta_t
             raw_velocity_vec = self.dfm.lattice_flow_vecs[:,i] / speed_ratio
             shift = (raw_velocity_vec).astype(int)
+            
+            #Apply actual streaming step
             new_map[:,:,i] = self.dfm.delta_t*np.roll(c_map[:,:,i], shift=shift, axis=(0,1)) + (1 - self.dfm.delta_t)*c_map[:,:,i]
         self.dfm.map = new_map
     
     def evolve(self):
-
-        self.direct_collision()
+        '''
+        Executes a single step in time evolution of the density flow map by colliding and advecting
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        None
+        '''
+        #Collision step:
+        self.direct_collision() #Slower, but more insightful routine
         #self.classical_collision()
         print("Completed collision")
         
-        self.apply_avect_BCs()
+        #Apply boundary conditions before advection beyond boundaries
+        self.apply_avect_BCs() 
+        
+        #Advection / streaming step:
         #self.advection()
-        self.classical_advection()
+        self.classical_advection() #In this context quicker than matrix-based advection
         
         print("Completed advection")
     
     def __run__(self, end_of_time):
+        '''
+        Controls the complete time evolution simulation and exports the results
+        
+        Parameters
+        ----------
+        end_of_time : float
+            Ending time (value) of the simulation
+            If timestep is default, equal to number of iterations over time
+        
+        Returns
+        -------
+        output : Dict
+            Collection, for readout, of quantities / map states measured over time
+        '''
+        
+        #Complete time array
         time = np.arange(0, end_of_time, step=self.dfm.delta_t)
         
-        time_samples = 40
+        #Time samples which should actually be stored into output
+        time_samples = 49
         save_timestep = max([1, int(time.shape[0] / time_samples)]) #Save only 100 timesteps in total
         
+        #Initialize output storage
         output = {'density_per_time': [], 'pressure_per_time': [], 'net_velocity_per_time': [], 'net_flow_vec_per_time': np.array([])}
         output['energy_per_time'], output['mom_density_per_time'], output['energy_flux_per_time'], output['vis_stress_per_time'] = [], [], [], []
         output['time'] = time[::save_timestep]
         
         for t in tqdm(time):
-            if t in output['time']:
+            if t in output['time']: #Only store data at time smaples
                 #Store previous time-step before (next) iteration
                 output['density_per_time'].append(self.dfm.densities())
                 output['pressure_per_time'].append(self.dfm.pressures())
@@ -530,9 +933,10 @@ class LatticeBoltzmann:
                 output['energy_flux_per_time'].append(c_moments['energy_flux'])
                 output['vis_stress_per_time'].append(c_moments['vis_stress'])
                 
-            #Evolution of system
+            #Actual Evolution of system
             self.evolve()
 
+        #Post-processing of output (format)
         output['density_per_time'] = np.array(output['density_per_time'])
         output['pressure_per_time'] = np.array(output['pressure_per_time'])
         output['net_velocity_per_time'] = np.array(output['net_velocity_per_time'])
@@ -546,19 +950,62 @@ class LatticeBoltzmann:
 
 class MultiComp_LatticeBoltzmann:
     '''
-    Defines a Lattice Boltzmann Model (LBM) from a given density flow map / lattice for multiple (different) fluids
+    Defines a Lattice Boltzmann Model (LBM) from a given set of density flow maps (>2) for multiple (different) fluids
     '''
     
     def __init__(self, density_flow_maps, interact_strength):
+        '''
+        Parameters
+        ----------
+        density_flow_maps : List[DensityFlowMap]
+            List of DensityFlowMap instances defining the discrete velocity lattice models
+            The type of discrete velocity 
+            
+        interact_strength : float
+            Coupling constant / strength in the potential between density flow lattices
+            
+        Returns
+        -------
+        None
+        
+        ''' 
         self.lb_models = [LatticeBoltzmann(dfm) for dfm in density_flow_maps]
         self.interact_strength = interact_strength  
     
     def average_velocities(self):
+        '''
+        Returns net joint velocity of all lattices / DFM's based on momentum densities
+        
+        Parameters
+        ----------
+        None
+             
+        Returns
+        -------
+        average_velocities : ndarray
+            Net joint velocity of all lattices in the system
+        '''
+        
         norm = sum([lbm.dfm.mass * lbm.dfm.densities() for lbm in self.lb_models])
         return sum([lbm.dfm.mass * lbm.dfm.velocities() for lbm in self.lb_models]) / norm
 
     
     def lattice_interact_force(self, densities_per_lattice):
+        '''
+        Yields the interaction forces between any pair of lattices at each lattice site
+        
+        Parameters
+        ----------
+        densities_per_lattice : List[ndarray]
+            Total density at each lattice site from each involved lattice / DFM seperately
+        
+             
+        Returns
+        -------
+        forces_per_lattice : List[ndarray]
+            Net interaction force at each lattice site on each exisiting lattices seperately
+        '''
+        
         forces_per_lattice = []
         
         for (idx, densities) in enumerate(densities_per_lattice):
@@ -568,6 +1015,7 @@ class MultiComp_LatticeBoltzmann:
                 if idx == idx_prime:
                     pass #latttices don't self-interact
                 else:
+                    #densities_prime = densities of another lattice
                     densities_prime_stack = np.tile(densities_prime, (1,1,D2Q9_interact_kernel.shape[0]))
                     shifted_densities_prime = np.einsum('ijn,jkn,kmn->imn', self.lb_models[idx].dfm.advec_ops[0], densities_prime_stack, self.lb_models[idx].advec_ops[1])
                     pot_per_direc = np.einsum('k,ijk->ij', D2Q9_interact_kernel, shifted_densities_prime)
@@ -577,20 +1025,48 @@ class MultiComp_LatticeBoltzmann:
         return forces_per_lattice
         
     def evolve(self):
+        '''
+        Executes a single step in time evolution of all density flow maps by colliding and advecting
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        None
+        '''
         densities_per_lattice = []
-        av_velocities = self.average_velocities()
+        
+        #Take average velocities of all lattices as equilibrium distribution
+        av_velocities = self.average_velocities()  
         for lbm in self.lb_models:
             lbm.direct_collision(av_velocities)
             densities_per_lattice.append(lbm.dfm.densities())
         
         forces_per_lattice = self.lattice_interact_force(densities_per_lattice)
         
+        #Apply forces after collision:
         for (idx, lbm) in enumerate(self.lb_models):
             lbm.dfm.map = lbm.dfm.map + (forces_per_lattice[idx])[:,:, np.newaxis]
             lbm.advection()
             
     
     def __run__(self, end_of_time):
+        '''
+        Controls the complete time evolution simulation of all interacting lattices and exports the results
+        
+        Parameters
+        ----------
+        end_of_time : float
+            Ending time (value) of the simulation
+            If timestep is default, equal to number of iterations over time
+        
+        Returns
+        -------
+        output : Dict
+            Collection, for readout, of quantities / map states measured over time
+        '''
         time = np.arange(0, end_of_time, step=self.dfm.delta_t)
 
         output = {}
